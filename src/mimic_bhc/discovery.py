@@ -121,7 +121,9 @@ def discover_headers_from_file(
     with duckdb.connect() as conn:
         notes = load_dataframe(conn, input_path)
 
-    # MIMIC-III: filter to discharge summaries, exclude ISERROR
+    # MIMIC-III: filter to discharge summaries, exclude ISERROR.
+    # Unlike batch extraction (which keeps ISERROR rows and flags them),
+    # discovery excludes them to avoid error notes skewing header frequency counts.
     if is_mimic3:
         notes = notes[notes["category"] == "Discharge summary"]
         if "iserror" in notes.columns:
