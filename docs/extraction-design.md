@@ -8,13 +8,13 @@ How the BHC extractor works: the algorithm, its assumptions, and the decisions b
 
 `BHCResult` fields are populated in layers. Each layer fills in the fields it owns and passes the result forward using `dataclasses.replace()`:
 
-1. **Extraction layer** (`extract_bhc()` in `mimic_bhc/extract.py`). Takes a note string, nothing else. Regex matching, boundary detection, text slicing. Fills in: `success`, `bhc_text`, `start_header`, `end_header`, `bhc_start`, `bhc_end`, `failure_reason`, `bhc_format`. Patterns live in `mimic_bhc/patterns.py`.
+1. **Extraction layer** (`extract_bhc()` in `mimic_bhc/extract.py`). Takes a note string, nothing else. Fills in all fields that can be derived directly from text extraction: the extracted text, matched headers, character offsets, and success/failure status. Patterns live in `mimic_bhc/patterns.py`.
 
-2. **Enrichment layer** (callers like `_process_note()` in `mimic_bhc/batch.py`). Adds all context that the extraction layer does not have access to: identifiers (`hadm_id`, `note_row_id`, `subject_id`), note metadata (`chartdate`, `note_length`), and derived fields (`quality_flags`, `bhc_structure` via `classify_bhc_structure()`).
+2. **Enrichment layer** (callers like `_process_note()` in `mimic_bhc/batch.py`). Adds context that the extraction layer does not have access to: record identifiers, note metadata, quality flags, and structure classification.
 
 3. **Serialization layer** (`BHCResult.to_dict()` in `mimic_bhc/model.py`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually. `BHCResult.from_dict()` reverses the mapping for loading JSON back into objects.
 
-Derived properties like `bhc_char_count` and `bhc_word_count` are computed from `bhc_text` on access (as `@property` methods), not stored as separate fields.
+Derived properties (character count, word count) are computed from the extracted text on access as `@property` methods, not stored as separate fields.
 
 `compute_bhc_stats()` (in `mimic_bhc/stats.py`) takes a sequence of `BHCResult` objects directly, avoiding intermediate DataFrame conversions or field-name translation.
 
