@@ -118,7 +118,7 @@ uv run mimic-bhc-extract stats --input bhc.jsonl
 
 ### Discovering section headers
 
-The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
+The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns.
 
 ```bash
 # Simplify the command - replace with your path
@@ -127,6 +127,10 @@ export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
 # Omit the --notes flag to use the default (500 notes), or set to 0 to scan all notes
 uv run mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz --notes 100
 ```
+
+While adding more variants to the patterns can increase extraction coverage, it also risks false positives if the pattern becomes too permissive. The discovery tool helps balance this tradeoff by showing what headers exist in the notes and how they are currently classified.
+
+See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
 
 ## MIMIC Format Support
 
