@@ -56,9 +56,14 @@ ignore = [
     "PLC0415", # imports inside fixtures/tests for test isolation
     "PTH123",  # open() is fine in tests
     "PERF401", # append-in-loop is fine in tests (clarity over micro-optimization)
+    "PLR0913", # test helpers need many keyword args for clarity
 ]
 "src/mimic_bhc/cli.py" = [
     "T201",    # print is the output mechanism for CLI
+    "PLC0415", # lazy import of BHCResult/compute_bhc_stats in stats subcommand
+]
+"src/mimic_bhc/model.py" = [
+    "PLC0415", # lazy import of StructureResult in from_dict to avoid circular import
 ]
 "src/mimic_bhc/pipeline.py" = [
     "FBT001",  # is_mimic3 bool parameter needed for version branching

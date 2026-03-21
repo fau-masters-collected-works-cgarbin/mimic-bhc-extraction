@@ -2,6 +2,24 @@
 
 How the BHC extractor works: the algorithm, its assumptions, and the decisions behind them.
 
+## BHCResult as the single data structure
+
+`BHCResult` is the canonical representation of a BHC extraction throughout the codebase. Every function that produces, transforms, or serializes extraction data works with `BHCResult` directly rather than building parallel dicts or DataFrames with ad-hoc field names.
+
+`BHCResult` fields are populated in layers. Each layer fills in the fields it owns and passes the result forward using `dataclasses.replace()`:
+
+1. **Extraction layer** (`extract_bhc()`). Regex matching, boundary detection, text slicing. Fills in: `bhc_text`, `start_header`, `end_header`, `bhc_start`, `bhc_end`, `success`, `failure_reason`. Also receives pass-through identifiers from the caller: `hadm_id`, `note_row_id`.
+
+2. **Enrichment layer** (callers like `_process_note()`). Adds context that the extraction layer does not have access to: `subject_id`, `chartdate`, `note_length`. Computes derived fields: `quality_flags`, `bhc_structure` (via `classify_bhc_structure()`).
+
+3. **Serialization layer** (`BHCResult.to_dict()`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually.
+
+Derived properties like `bhc_char_count` and `bhc_word_count` are computed from `bhc_text` on access (as `@property` methods), not stored as separate fields.
+
+`compute_bhc_stats()` takes a sequence of `BHCResult` objects rather than a DataFrame with ad-hoc column names. This eliminates the field-name translation that currently exists in the CLI stats command.
+
+The design rule: if you need a new field on the extraction output, add it to `BHCResult` and populate it in the appropriate layer. Do not create parallel representations.
+
 ## Two-phase extraction
 
 `extract_bhc()` operates on a single note string in two phases.
