@@ -181,7 +181,7 @@ class TestFailedExtractions:
 
 class TestSamplingOption:
     def test_sample_parameter(self, tmp_path):
-        """--sample N should extract from N random admissions."""
+        """--sample N should extract from exactly N admissions."""
         lines = [
             "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
             "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT"
@@ -198,4 +198,35 @@ class TestSamplingOption:
 
         results = extract_from_file(str(path), format_hint="mimic3", sample_size=3)
 
-        assert len(results) <= 3
+        assert len(results) == 3
+
+    def test_sample_counts_admissions_not_rows(self, tmp_path):
+        """--sample N should sample N admissions, not N rows.
+
+        With addendums (multiple rows per admission), row-level sampling
+        could return fewer admissions than requested.
+        """
+        lines = [
+            "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
+            "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT"
+        ]
+        # 5 admissions, each with 2 rows (original + addendum) = 10 rows
+        for i in range(5):
+            hadm_id = 100 + i
+            lines.append(
+                f'{i * 2 + 1},10,{hadm_id},2150-01-01,,,"Discharge summary","Report",,,'
+                f'"Brief Hospital Course:\nPatient {i} original.\n\n'
+                f'Medications on Discharge:\nMed {i}"'
+            )
+            lines.append(
+                f'{i * 2 + 2},10,{hadm_id},2150-01-01,,,"Discharge summary","Addendum",,,'
+                f'"Brief Hospital Course:\nShort.\n\nDischarge Condition:\nOK"'
+            )
+
+        path = tmp_path / "NOTEEVENTS.csv.gz"
+        with gzip.open(path, "wt") as f:
+            f.write("\n".join(lines) + "\n")
+
+        results = extract_from_file(str(path), format_hint="mimic3", sample_size=3)
+
+        assert len(results) == 3

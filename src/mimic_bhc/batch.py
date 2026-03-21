@@ -181,6 +181,10 @@ def extract_from_file(
         notes = notes[notes["category"] == "Discharge summary"].copy()
 
     if sample_size is not None:
-        notes = notes.sample(n=min(sample_size, len(notes)), random_state=42)
+        import pandas as pd
+
+        unique_ids = pd.Series(notes[cols.hadm_id].unique())
+        sampled_ids = unique_ids.sample(n=min(sample_size, len(unique_ids)), random_state=42)
+        notes = notes[notes[cols.hadm_id].isin(sampled_ids)]
 
     return [_select_best_per_admission(group, cols) for _, group in notes.groupby(cols.hadm_id)]
