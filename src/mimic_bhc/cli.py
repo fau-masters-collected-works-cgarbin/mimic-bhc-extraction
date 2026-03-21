@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from mimic_bhc.discovery import discover_headers_from_file
@@ -44,6 +45,84 @@ def _run_discover(args: argparse.Namespace) -> int:
     print(f"{'-' * header_w}  {'-' * count_w}  ----")
     for header, count, role in results:
         print(f"{header:<{header_w}}  {count:>{count_w}}  {role}")
+
+    return 0
+
+
+def _load_results(input_path: str) -> list[dict]:
+    """Load extraction results from a JSON or JSONL file."""
+    with open(input_path) as f:  # noqa: PTH123
+        first_char = f.read(1)
+        if not first_char:
+            return []
+        f.seek(0)
+        if first_char == "[":
+            return json.load(f)
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
+    """Run the stats subcommand."""
+    import pandas as pd
+
+    from mimic_bhc.extract import compute_bhc_stats
+
+    records = _load_results(args.input)
+    if not records:
+        print("No records found.")
+        return 0
+
+    # Map CLI output field names to what compute_bhc_stats expects.
+    for rec in records:
+        rec["success"] = rec.pop("extraction_success", False)
+        structure = rec.get("bhc_structure")
+        rec["bhc_format"] = structure["category"] if structure else None
+
+    stats = compute_bhc_stats(pd.DataFrame(records))
+
+    # Summary
+    pct = stats["success_rate"] * 100
+    print(f"Total admissions:  {stats['total']:,}")
+    print(f"Successful:        {stats['successes']:,} ({pct:.1f}%)")
+    print(f"Failed:            {stats['failures']:,} ({100 - pct:.1f}%)")
+
+    # Failure reasons
+    if stats["failure_reasons"]:
+        print("\nFailure reasons:")
+        for reason, count in sorted(stats["failure_reasons"].items(), key=lambda x: -x[1]):
+            print(f"  {reason:<20} {count:>8,}")
+
+    # Start header distribution
+    if stats["header_distribution"]:
+        print("\nStart headers:")
+        for header, count in sorted(stats["header_distribution"].items(), key=lambda x: -x[1]):
+            print(f"  {header:<40} {count:>8,}")
+
+    # End header distribution
+    if stats["end_header_distribution"]:
+        print("\nEnd headers:")
+        for header, count in sorted(stats["end_header_distribution"].items(), key=lambda x: -x[1]):
+            print(f"  {header:<40} {count:>8,}")
+    if stats["unbounded_extractions"] > 0:
+        print(f"  {'(unbounded)':<40} {stats['unbounded_extractions']:>8,}")
+
+    # BHC length stats
+    length = stats["bhc_length_stats"]
+    if length:
+        print("\nBHC length (characters):")
+        print(
+            f"  Median: {length['median']:,.0f}  Mean: {length['mean']:,.0f}"
+            f"  Q25: {length['q25']:,.0f}  Q75: {length['q75']:,.0f}"
+        )
+        print(f"  Min: {length['min']:,}  Max: {length['max']:,}")
+    if stats["short_extractions"] > 0:
+        print(f"  Short extractions (<100 chars): {stats['short_extractions']:,}")
+
+    # Structure distribution
+    if stats["format_distribution"]:
+        print("\nStructure distribution:")
+        for fmt, count in sorted(stats["format_distribution"].items(), key=lambda x: -x[1]):
+            print(f"  {fmt:<40} {count:>8,}")
 
     return 0
 
@@ -102,7 +181,16 @@ def _add_discover_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-_SUBCOMMANDS = {"extract", "discover"}
+def _add_stats_args(parser: argparse.ArgumentParser) -> None:
+    """Add arguments for the stats subcommand."""
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Path to extraction output file (JSON or JSONL from the extract command)",
+    )
+
+
+_SUBCOMMANDS = {"extract", "discover", "stats"}
 
 
 def main() -> int:
@@ -128,6 +216,13 @@ def main() -> int:
     )
     _add_discover_args(discover_parser)
 
+    # stats subcommand
+    stats_parser = subparsers.add_parser(
+        "stats",
+        help="Show summary statistics from extraction output",
+    )
+    _add_stats_args(stats_parser)
+
     # Backward compatibility: if first arg is a flag like --input (not a
     # known subcommand and not --help/-h), prepend "extract" so the old
     # single-command CLI still works.
@@ -141,6 +236,8 @@ def main() -> int:
         return _run_extract(args)
     if args.command == "discover":
         return _run_discover(args)
+    if args.command == "stats":
+        return _run_stats(args)
 
     parser.print_help()
     return 1
