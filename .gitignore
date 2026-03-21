@@ -37,3 +37,8 @@ venv/
 .mypy_cache/
 
 .ruff_cache
+
+# Files containing extracted BHCs (do not commit MIMIC data)
+*.jsonl
+*.json
+*.yaml
