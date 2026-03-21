@@ -5,20 +5,36 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from typing import TYPE_CHECKING
 
 from mimic_bhc.discovery import discover_headers_from_file
 from mimic_bhc.pipeline import extract_from_file
 
+if TYPE_CHECKING:
+    from mimic_bhc.model import BHCResult
+
+
+def _write_results(results: list[BHCResult], output_path: str, *, pretty: bool) -> None:
+    """Write extraction results to a JSON/JSONL file."""
+    dicts = [r.to_dict() for r in results]
+    with open(output_path, "w") as f:  # noqa: PTH123
+        if pretty:
+            json.dump(dicts, f, indent=2)
+            f.write("\n")
+        else:
+            for d in dicts:
+                json.dump(d, f)
+                f.write("\n")
+
 
 def _run_extract(args: argparse.Namespace) -> int:
     """Run the extract subcommand."""
-    extract_from_file(
+    results = extract_from_file(
         input_path=args.input,
-        output_path=args.output,
         format_hint=args.format,
-        pretty_print=args.pretty,
         sample_size=args.sample,
     )
+    _write_results(results, args.output, pretty=args.pretty)
     print(f"BHC extraction complete. Output written to {args.output}")
     return 0
 

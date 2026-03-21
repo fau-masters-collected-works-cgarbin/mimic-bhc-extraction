@@ -55,171 +55,105 @@ def mimic4_discharge_gz(tmp_path):
 
 
 class TestMimic3Format:
-    def test_filters_to_discharge_summaries(self, mimic3_noteevents_gz, tmp_path):
+    def test_filters_to_discharge_summaries(self, mimic3_noteevents_gz):
         """MIMIC-III: filters to discharge summaries, excludes radiology."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3")
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        # Should have results for hadm_id 100 and 200 (discharge summaries)
-        hadm_ids = {r["hadm_id"] for r in results}
+        hadm_ids = {r.hadm_id for r in results}
         assert 100 in hadm_ids or 200 in hadm_ids
         assert 300 not in hadm_ids  # Radiology note should be excluded
 
-    def test_deduplicates_addendums_keeps_longest(self, mimic3_noteevents_gz, tmp_path):
+    def test_deduplicates_addendums_keeps_longest(self, mimic3_noteevents_gz):
         """MIMIC-III: for same hadm_id, keeps row with longest BHC."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3")
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        # Find results for hadm_id 100
-        hadm_100_results = [r for r in results if r["hadm_id"] == 100]
+        hadm_100_results = [r for r in results if r.hadm_id == 100]
         assert len(hadm_100_results) == 1
         # Should be from the longer note (row_id 1 with "pneumonia"), not the addendum (row_id 4)
-        assert hadm_100_results[0]["row_id"] == "1"
-        assert "pneumonia" in hadm_100_results[0]["bhc_text"].lower()
+        assert hadm_100_results[0].note_row_id == "1"
+        assert "pneumonia" in hadm_100_results[0].bhc_text.lower()
 
-    def test_iserror_flagged(self, mimic3_noteevents_gz, tmp_path):
+    def test_iserror_flagged(self, mimic3_noteevents_gz):
         """MIMIC-III: ISERROR rows should be included and flagged."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3")
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        # Find result for hadm_id 200 (ISERROR row)
-        hadm_200_results = [r for r in results if r["hadm_id"] == 200]
+        hadm_200_results = [r for r in results if r.hadm_id == 200]
         if hadm_200_results:
-            assert "iserror" in hadm_200_results[0]["quality_flags"]
+            assert "iserror" in hadm_200_results[0].quality_flags
 
-    def test_auto_detects_mimic3(self, mimic3_noteevents_gz, tmp_path):
+    def test_auto_detects_mimic3(self, mimic3_noteevents_gz):
         """Auto-detect should identify MIMIC-III by CATEGORY column."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="auto")
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="auto")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        # Should have extracted discharge summaries (hadm_id 100 or 200)
-        hadm_ids = {r["hadm_id"] for r in results}
+        hadm_ids = {r.hadm_id for r in results}
         assert len(hadm_ids) > 0
 
 
 class TestMimic4Format:
-    def test_no_filtering_mimic4(self, mimic4_discharge_gz, tmp_path):
+    def test_no_filtering_mimic4(self, mimic4_discharge_gz):
         """MIMIC-IV: no category filtering needed."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic4_discharge_gz), str(output_path), format_hint="mimic4")
-
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
+        results = extract_from_file(str(mimic4_discharge_gz), format_hint="mimic4")
 
         assert len(results) == 2
-        hadm_ids = {r["hadm_id"] for r in results}
+        hadm_ids = {r.hadm_id for r in results}
         assert hadm_ids == {100, 200}
 
-    def test_string_note_ids_mimic4(self, mimic4_discharge_gz, tmp_path):
+    def test_string_note_ids_mimic4(self, mimic4_discharge_gz):
         """MIMIC-IV note IDs are strings, not integers."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic4_discharge_gz), str(output_path), format_hint="mimic4")
+        results = extract_from_file(str(mimic4_discharge_gz), format_hint="mimic4")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
+        assert results[0].note_row_id == "FAKE-NOTE-DS-01"
+        assert isinstance(results[0].note_row_id, str)
 
-        assert results[0]["row_id"] == "FAKE-NOTE-DS-01"
-        assert isinstance(results[0]["row_id"], str)
-
-    def test_auto_detects_mimic4(self, mimic4_discharge_gz, tmp_path):
+    def test_auto_detects_mimic4(self, mimic4_discharge_gz):
         """Auto-detect should identify MIMIC-IV by absence of CATEGORY column."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic4_discharge_gz), str(output_path), format_hint="auto")
-
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
+        results = extract_from_file(str(mimic4_discharge_gz), format_hint="auto")
 
         assert len(results) == 2
 
 
-class TestOutputFormat:
-    def test_output_json_structure(self, mimic3_noteevents_gz, tmp_path):
-        """Verify output JSON contains all required fields."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3")
-
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
+class TestPipelineEnrichment:
+    def test_result_fields_populated(self, mimic3_noteevents_gz):
+        """Pipeline should populate all enrichment fields on BHCResult."""
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
         assert len(results) > 0
-        for result in results:
-            assert "hadm_id" in result
-            assert "subject_id" in result
-            assert "row_id" in result
-            assert "bhc_text" in result
-            assert "extraction_success" in result
-            assert "quality_flags" in result
-            assert isinstance(result["quality_flags"], list)
-            if result["extraction_success"]:
-                assert "bhc_structure" in result
-                assert result["bhc_structure"] is not None
-                assert "category" in result["bhc_structure"]
+        for r in results:
+            assert r.hadm_id is not None
+            assert r.subject_id is not None
+            assert r.note_row_id is not None
+            assert isinstance(r.quality_flags, tuple)
+            if r.success:
+                assert r.bhc_text is not None
+                assert r.bhc_structure is not None
+                assert r.bhc_structure.category in (
+                    "narrative",
+                    "domain_organized",
+                    "standardized_template",
+                )
 
-    def test_quality_flags_populated(self, mimic3_noteevents_gz, tmp_path):
-        """Quality flags should be present in output."""
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3")
+    def test_quality_flags_are_tuples(self, mimic3_noteevents_gz):
+        """Quality flags should be tuples of strings."""
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        for result in results:
-            assert isinstance(result["quality_flags"], list)
+        for r in results:
+            assert isinstance(r.quality_flags, tuple)
 
     def test_pretty_print_produces_valid_json_array(self, mimic3_noteevents_gz, tmp_path):
-        """--pretty flag should produce a valid JSON array."""
+        """CLI write with pretty=True should produce a valid JSON array."""
+        from mimic_bhc.cli import _write_results
+
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
+
         output_path = tmp_path / "output.json"
-        extract_from_file(
-            str(mimic3_noteevents_gz), str(output_path), format_hint="mimic3", pretty_print=True
-        )
+        _write_results(results, str(output_path), pretty=True)
 
         with open(output_path) as f:
             content = f.read()
 
-        # Should be parseable as a single JSON document (array)
-        results = json.loads(content)
-        assert isinstance(results, list)
-        assert len(results) > 0
-        # Should have indentation
+        parsed = json.loads(content)
+        assert isinstance(parsed, list)
+        assert len(parsed) > 0
         assert "  " in content
 
 
@@ -237,25 +171,17 @@ class TestFailedExtractions:
         with gzip.open(path, "wt") as f:
             f.write(csv_content)
 
-        output_path = tmp_path / "output.jsonl"
-        extract_from_file(str(path), str(output_path), format_hint="mimic3")
-
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
+        results = extract_from_file(str(path), format_hint="mimic3")
 
         assert len(results) == 1
-        assert results[0]["hadm_id"] == 100
-        assert results[0]["extraction_success"] is False
-        assert results[0]["failure_reason"] == "no_header"
+        assert results[0].hadm_id == 100
+        assert results[0].success is False
+        assert results[0].failure_reason == "no_header"
 
 
 class TestSamplingOption:
     def test_sample_parameter(self, tmp_path):
         """--sample N should extract from N random admissions."""
-        # Create larger test file
         lines = [
             "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
             "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT"
@@ -270,14 +196,6 @@ class TestSamplingOption:
         with gzip.open(path, "wt") as f:
             f.write("\n".join(lines) + "\n")
 
-        output_path = tmp_path / "output.json"
-        extract_from_file(str(path), str(output_path), format_hint="mimic3", sample_size=3)
+        results = extract_from_file(str(path), format_hint="mimic3", sample_size=3)
 
-        results = []
-        with open(output_path) as f:
-            for line in f:
-                if line.strip():
-                    results.append(json.loads(line))
-
-        # Should have approximately 3 results (exact count depends on sampling)
         assert len(results) <= 3

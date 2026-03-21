@@ -7,7 +7,6 @@ DuckDB is used internally for efficient data loading but is not exposed in the p
 from __future__ import annotations
 
 import dataclasses
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -160,42 +159,27 @@ def _select_best_per_admission(
     return best_result  # type: ignore[return-value]
 
 
-def _write_results(results: list[BHCResult], output_path: str, *, pretty: bool) -> None:
-    """Write extraction results to a JSON/JSONL file.
-
-    Serialization happens here via BHCResult.to_dict(). This is the only
-    place in the pipeline that converts BHCResult to dicts.
-    """
-    dicts = [r.to_dict() for r in results]
-    with open(output_path, "w") as f:  # noqa: PTH123
-        if pretty:
-            json.dump(dicts, f, indent=2)
-            f.write("\n")
-        else:
-            for d in dicts:
-                json.dump(d, f)
-                f.write("\n")
-
-
 def extract_from_file(
     input_path: str,
-    output_path: str,
     format_hint: str = "auto",
     *,
-    pretty_print: bool = False,
     sample_size: int | None = None,
-) -> None:
+) -> list[BHCResult]:
     """Extract BHC from discharge summaries in a CSV/parquet file.
+
+    Loads the file, filters to discharge summaries (MIMIC-III), runs extraction
+    and structure classification on each note, and handles addendum deduplication.
+    Returns one BHCResult per admission.
 
     Args:
         input_path: Path to NOTEEVENTS CSV/parquet (MIMIC-III or MIMIC-IV format)
-        output_path: Path to write JSONL output (or JSON array with pretty_print)
         format_hint: 'mimic3', 'mimic4', or 'auto' (default: auto-detect)
-        pretty_print: Write a single pretty-printed JSON array instead of JSONL
         sample_size: Extract from random sample of N admissions (optional)
+
+    Returns:
+        List of BHCResult, one per admission (including failed extractions).
     """
     input_path = str(input_path)
-    output_path = str(output_path)
 
     if format_hint == "auto":
         is_mimic3 = detect_mimic_format(input_path) == "mimic3"
@@ -214,6 +198,4 @@ def extract_from_file(
     if sample_size is not None:
         notes = notes.sample(n=min(sample_size, len(notes)), random_state=42)
 
-    results = [_select_best_per_admission(group, cols) for _, group in notes.groupby(cols.hadm_id)]
-
-    _write_results(results, output_path, pretty=pretty_print)
+    return [_select_best_per_admission(group, cols) for _, group in notes.groupby(cols.hadm_id)]
