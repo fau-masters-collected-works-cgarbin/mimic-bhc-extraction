@@ -7,7 +7,8 @@ Public API exports:
 - StructureResult: Result dataclass from structure classification
 """
 
-from mimic_bhc.extract import BHCResult, extract_bhc
+from mimic_bhc.extract import extract_bhc
+from mimic_bhc.model import BHCResult
 from mimic_bhc.structure import StructureResult, classify_bhc_structure
 
 __all__ = ["BHCResult", "StructureResult", "classify_bhc_structure", "extract_bhc"]

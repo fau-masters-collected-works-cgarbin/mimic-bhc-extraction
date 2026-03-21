@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from mimic_bhc._util import detect_mimic_format
-from mimic_bhc.extract import _BHC_HEADER_RE, _SECTION_HEADER_RE, END_BOUNDARY_RE
+from mimic_bhc.patterns import _BHC_HEADER_RE, _SECTION_HEADER_RE, END_BOUNDARY_RE
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

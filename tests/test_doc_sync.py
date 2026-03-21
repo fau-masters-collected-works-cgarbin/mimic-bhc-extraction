@@ -8,11 +8,8 @@ the doc to match the code (or vice versa).
 import re
 from pathlib import Path
 
-from mimic_bhc.extract import (
-    _BHC_HEADER_PATTERNS,
-    _END_BOUNDARIES,
-    MIN_BHC_LENGTH,
-)
+from mimic_bhc.patterns import _BHC_HEADER_PATTERNS, _END_BOUNDARIES
+from mimic_bhc.stats import MIN_BHC_LENGTH
 
 _DOC_PATH = Path(__file__).parent.parent / "docs" / "extraction-design.md"
 

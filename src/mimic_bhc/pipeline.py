@@ -6,6 +6,7 @@ DuckDB is used internally for efficient data loading but is not exposed in the p
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -13,35 +14,33 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from mimic_bhc._util import detect_mimic_format
-from mimic_bhc.extract import MIN_BHC_LENGTH, extract_bhc
+from mimic_bhc.extract import extract_bhc
+from mimic_bhc.stats import MIN_BHC_LENGTH
 from mimic_bhc.structure import classify_bhc_structure
 
 if TYPE_CHECKING:
     import pandas as pd
 
+    from mimic_bhc.model import BHCResult
 
-def _build_quality_flags(
-    extraction_success: bool,
-    bhc_text: str | None,
-    end_header: str | None,
-    iserror: int | None = None,
-) -> list[str]:
-    """Build quality_flags list based on extraction result metadata."""
-    flags = []
+
+def _build_quality_flags(result: BHCResult, iserror: int | None = None) -> tuple[str, ...]:
+    """Build quality_flags tuple based on extraction result metadata."""
+    flags: list[str] = []
 
     if iserror == 1:
         flags.append("iserror")
 
-    if not extraction_success:
-        return flags
+    if not result.success:
+        return tuple(flags)
 
-    if bhc_text and len(bhc_text) < MIN_BHC_LENGTH:
+    if result.bhc_text and len(result.bhc_text) < MIN_BHC_LENGTH:
         flags.append("below_min_length")
 
-    if end_header is None:
+    if result.end_header is None:
         flags.append("unbounded")
 
-    return flags
+    return tuple(flags)
 
 
 def _process_note(
@@ -52,47 +51,22 @@ def _process_note(
     note_text: str,
     note_length: int,
     iserror: int | None = None,
-) -> dict:
-    """Extract BHC and structure classification from a single note."""
+) -> BHCResult:
+    """Extract BHC, classify structure, and enrich with note metadata."""
     result = extract_bhc(note_text, hadm_id=hadm_id, note_row_id=row_id)
 
-    quality_flags = _build_quality_flags(
-        result.success,
-        result.bhc_text,
-        result.end_header,
-        iserror,
-    )
-
-    output = {
-        "hadm_id": hadm_id,
-        "subject_id": subject_id,
-        "row_id": row_id,
-        "chartdate": chartdate,
-        "bhc_text": result.bhc_text,
-        "bhc_char_count": len(result.bhc_text) if result.bhc_text else 0,
-        "bhc_word_count": len(result.bhc_text.split()) if result.bhc_text else 0,
-        "start_header": result.start_header,
-        "end_header": result.end_header,
-        "extraction_success": result.success,
-        "failure_reason": result.failure_reason,
-        "quality_flags": quality_flags,
-        "bhc_structure": None,
-        "bhc_start": result.bhc_start,
-        "bhc_end": result.bhc_end,
-        "note_length": note_length,
-    }
-
+    structure = None
     if result.success and result.bhc_text:
         structure = classify_bhc_structure(result.bhc_text)
-        output["bhc_structure"] = {
-            "category": structure.category,
-            "numbering_convention": structure.numbering_convention,
-            "modifiers": list(structure.modifiers),
-            "nicu_domain_count": structure.nicu_domain_count,
-            "labeled_section_count": structure.labeled_section_count,
-        }
 
-    return output
+    return dataclasses.replace(
+        result,
+        subject_id=subject_id,
+        chartdate=chartdate,
+        note_length=note_length,
+        quality_flags=_build_quality_flags(result, iserror),
+        bhc_structure=structure,
+    )
 
 
 @dataclass
@@ -146,7 +120,7 @@ def _load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.Data
 def _select_best_per_admission(
     group: pd.DataFrame,
     cols: _ColumnMap,
-) -> dict:
+) -> BHCResult:
     """Process all notes for one admission and return the best result.
 
     For admissions with multiple notes (addendums), keeps the note with the
@@ -155,7 +129,7 @@ def _select_best_per_admission(
     """
     import pandas as pd
 
-    best_result = None
+    best_result: BHCResult | None = None
     best_bhc_len = -1  # -1 so that even bhc_char_count=0 wins on the first note
 
     for _, row in group.iterrows():
@@ -175,7 +149,7 @@ def _select_best_per_admission(
             iserror=iserror,
         )
 
-        bhc_len = note_result["bhc_char_count"]
+        bhc_len = note_result.bhc_char_count
         if bhc_len > best_bhc_len:
             best_bhc_len = bhc_len
             best_result = note_result
@@ -184,19 +158,20 @@ def _select_best_per_admission(
     return best_result  # type: ignore[return-value]
 
 
-def _write_results(results: list[dict], output_path: str, *, pretty: bool) -> None:
+def _write_results(results: list[BHCResult], output_path: str, *, pretty: bool) -> None:
     """Write extraction results to a JSON/JSONL file.
 
-    When pretty=True, writes a single JSON array (readable, valid JSON).
-    When pretty=False, writes one JSON object per line (JSONL, streaming-friendly).
+    Serialization happens here via BHCResult.to_dict(). This is the only
+    place in the pipeline that converts BHCResult to dicts.
     """
+    dicts = [r.to_dict() for r in results]
     with open(output_path, "w") as f:  # noqa: PTH123
         if pretty:
-            json.dump(results, f, indent=2)
+            json.dump(dicts, f, indent=2)
             f.write("\n")
         else:
-            for result in results:
-                json.dump(result, f)
+            for d in dicts:
+                json.dump(d, f)
                 f.write("\n")
 
 

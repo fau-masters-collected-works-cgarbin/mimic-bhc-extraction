@@ -61,24 +61,18 @@ def _load_results(input_path: str) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
+def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901
     """Run the stats subcommand."""
-    import pandas as pd
-
-    from mimic_bhc.extract import compute_bhc_stats
+    from mimic_bhc.model import BHCResult
+    from mimic_bhc.stats import compute_bhc_stats
 
     records = _load_results(args.input)
     if not records:
         print("No records found.")
         return 0
 
-    # Map CLI output field names to what compute_bhc_stats expects.
-    for rec in records:
-        rec["success"] = rec.pop("extraction_success", False)
-        structure = rec.get("bhc_structure")
-        rec["bhc_format"] = structure["category"] if structure else None
-
-    stats = compute_bhc_stats(pd.DataFrame(records))
+    results = [BHCResult.from_dict(rec) for rec in records]
+    stats = compute_bhc_stats(results)
 
     # Summary
     pct = stats["success_rate"] * 100

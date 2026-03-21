@@ -4,9 +4,40 @@ import json
 from argparse import Namespace
 
 from mimic_bhc.cli import _load_results, _run_stats
+from mimic_bhc.model import BHCResult
+from mimic_bhc.structure import StructureResult
 
 
-def _make_record(  # noqa: PLR0913
+def _make_result(
+    hadm_id: int,
+    *,
+    success: bool = True,
+    bhc_text: str = "Patient was admitted for chest pain.",
+    start_header: str = "Brief Hospital Course:",
+    end_header: str = "Medications on Discharge",
+    category: str = "narrative",
+) -> BHCResult:
+    """Build a BHCResult for CLI stats tests."""
+    structure = StructureResult(category=category) if success else None
+    return BHCResult(
+        hadm_id=hadm_id,
+        success=success,
+        bhc_text=bhc_text if success else None,
+        start_header=start_header if success else None,
+        end_header=end_header if success else None,
+        failure_reason=None if success else "no_header",
+        note_row_id=str(hadm_id),
+        subject_id=1,
+        chartdate="2150-01-01",
+        note_length=500,
+        quality_flags=(),
+        bhc_structure=structure,
+        bhc_start=0 if success else None,
+        bhc_end=len(bhc_text) if success else None,
+    )
+
+
+def _make_record(
     hadm_id: int,
     *,
     success: bool = True,
@@ -15,26 +46,15 @@ def _make_record(  # noqa: PLR0913
     end_header: str = "Medications on Discharge",
     category: str = "narrative",
 ) -> dict:
-    """Build a minimal extraction output record."""
-    structure = {"category": category} if success else None
-    return {
-        "hadm_id": hadm_id,
-        "subject_id": 1,
-        "row_id": str(hadm_id),
-        "chartdate": "2150-01-01",
-        "bhc_text": bhc_text if success else None,
-        "bhc_char_count": len(bhc_text) if success else 0,
-        "bhc_word_count": len(bhc_text.split()) if success else 0,
-        "start_header": start_header if success else None,
-        "end_header": end_header if success else None,
-        "extraction_success": success,
-        "failure_reason": None if success else "no_header",
-        "quality_flags": [],
-        "bhc_structure": structure,
-        "bhc_start": 0 if success else None,
-        "bhc_end": len(bhc_text) if success else None,
-        "note_length": 500,
-    }
+    """Build a JSON record by serializing a BHCResult via to_dict()."""
+    return _make_result(
+        hadm_id,
+        success=success,
+        bhc_text=bhc_text,
+        start_header=start_header,
+        end_header=end_header,
+        category=category,
+    ).to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -121,3 +141,25 @@ class TestRunStats:
         output = capsys.readouterr().out
         assert "Failed:" in output
         assert "0.0%" in output  # success rate
+
+
+class TestFromDictRoundtrip:
+    """Verify that JSON files produced by to_dict() can be loaded back
+    into BHCResult objects via from_dict(), without manual field remapping."""
+
+    def test_load_and_reconstruct(self, tmp_path):
+        records = [_make_record(1), _make_record(2, success=False)]
+        path = tmp_path / "results.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records))
+
+        loaded = _load_results(str(path))
+        reconstructed = [BHCResult.from_dict(r) for r in loaded]
+
+        assert len(reconstructed) == 2
+        assert reconstructed[0].hadm_id == 1
+        assert reconstructed[0].success is True
+        assert reconstructed[0].subject_id == 1
+        assert reconstructed[0].bhc_structure is not None
+        assert reconstructed[0].bhc_structure.category == "narrative"
+        assert reconstructed[1].success is False
+        assert reconstructed[1].bhc_structure is None
