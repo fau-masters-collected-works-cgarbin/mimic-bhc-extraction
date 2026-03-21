@@ -6,30 +6,18 @@ DuckDB is used internally for efficient data loading but is not exposed in the p
 
 from __future__ import annotations
 
-import gzip
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import duckdb
 
+from mimic_bhc._util import detect_mimic_format
 from mimic_bhc.extract import MIN_BHC_LENGTH, extract_bhc
 from mimic_bhc.structure import classify_bhc_structure
 
 if TYPE_CHECKING:
     import pandas as pd
-
-
-def _detect_format(csv_path: str) -> str:
-    """Auto-detect MIMIC version by checking for CATEGORY column in first row."""
-    if csv_path.endswith(".gz"):
-        with gzip.open(csv_path, "rt") as f:
-            header = f.readline().strip()
-    else:
-        with open(csv_path) as f:  # noqa: PTH123
-            header = f.readline().strip()
-
-    return "mimic3" if "CATEGORY" in header else "mimic4"
 
 
 def _build_quality_flags(
@@ -233,7 +221,7 @@ def extract_from_file(
     output_path = str(output_path)
 
     if format_hint == "auto":
-        is_mimic3 = _detect_format(input_path) == "mimic3"
+        is_mimic3 = detect_mimic_format(input_path) == "mimic3"
     else:
         is_mimic3 = format_hint == "mimic3"
 

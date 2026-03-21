@@ -16,11 +16,11 @@ Two entry points:
 
 from __future__ import annotations
 
-import gzip
 from typing import TYPE_CHECKING
 
 import duckdb
 
+from mimic_bhc._util import detect_mimic_format
 from mimic_bhc.extract import _BHC_HEADER_RE, _SECTION_HEADER_RE, END_BOUNDARY_RE
 
 if TYPE_CHECKING:
@@ -85,18 +85,6 @@ def discover_headers_in_texts(
 # ---------------------------------------------------------------------------
 
 
-def _detect_format(csv_path: str) -> str:
-    """Auto-detect MIMIC version by checking for CATEGORY column in first row."""
-    if csv_path.endswith(".gz"):
-        with gzip.open(csv_path, "rt") as f:
-            header = f.readline().strip()
-    else:
-        with open(csv_path) as f:  # noqa: PTH123
-            header = f.readline().strip()
-
-    return "mimic3" if "CATEGORY" in header else "mimic4"
-
-
 def discover_headers_from_file(
     input_path: str,
     *,
@@ -125,19 +113,19 @@ def discover_headers_from_file(
         ``(header_text, frequency, role)`` sorted by frequency descending.
     """
     is_mimic3 = (
-        format_hint == "mimic3" if format_hint != "auto" else _detect_format(input_path) == "mimic3"
+        format_hint == "mimic3"
+        if format_hint != "auto"
+        else detect_mimic_format(input_path) == "mimic3"
     )
 
-    conn = duckdb.connect()
-
-    # Load and normalize columns
-    if input_path.endswith(".parquet"):
-        notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
-    else:
-        notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
+    with duckdb.connect() as conn:
+        # Load and normalize columns
+        if input_path.endswith(".parquet"):
+            notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
+        else:
+            notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
 
     notes.columns = notes.columns.str.lower()
-    conn.close()
 
     # MIMIC-III: filter to discharge summaries, exclude ISERROR
     if is_mimic3:
