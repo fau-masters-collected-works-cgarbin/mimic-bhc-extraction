@@ -20,7 +20,7 @@ This package provides broader header pattern coverage than previous extraction t
 ## Installation
 
 ```bash
-pip install git+https://github.com/cgarbin/mimic-bhc-extraction.git
+pip install git+https://github.com/fau-masters-collected-works-cgarbin/mimic-bhc-extraction.git
 ```
 
 ## Usage
