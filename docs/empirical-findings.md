@@ -20,68 +20,68 @@ MIMIC-III also stores addendums as separate rows with the same hospital admissio
 
 | Metric | Value |
 |--------|------:|
-| Successful extractions | 50,988 |
-| Failed extractions | 1,738 |
-| Success rate | 96.7% |
+| Successful extractions | 51,131 |
+| Failed extractions | 1,595 |
+| Success rate | 97.0% |
 | Failure reason (all failures) | `no_header` |
 
-All failures are `no_header` — no `empty_section` failures were observed. The 1,738 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters.
+All failures are `no_header` — no `empty_section` failures were observed. The 1,595 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters.
 
 ### Comparison with published numbers
 
-Our 96.7% extraction rate exceeds the ~87% reported by Alsentzer & Kim (2018) for MIMIC-III. The improvement comes from two design choices: (1) allowing inline text after the header colon (many notes write "HOSPITAL COURSE: The patient was admitted..." on one line rather than separating the header), and (2) matching a broader set of header variants including "Summary of Hospital Course", "Concise Summary of Hospital Course", "NICU Course", "History of Hospital Course", and "Hospitalization Course".
+Our 97.0% extraction rate exceeds the ~87% reported by Alsentzer & Kim (2018) for MIMIC-III. The improvement comes from two design choices: (1) allowing inline text after the header colon (many notes write "HOSPITAL COURSE: The patient was admitted..." on one line rather than separating the header), and (2) matching a broader set of header variants including "Summary of Hospital Course", "Concise Summary of Hospital Course", "NICU Course", "History of Hospital Course", and "Hospitalization Course".
 
 Adams et al. (2021) report ~109K source-target pairs from MIMIC-III. This number is larger than the ~59K total discharge summary rows in NOTEEVENTS, so it likely refers to source-target pairs in their summarization dataset (where the "source" is the collection of clinical notes for an admission and the "target" is the BHC), not to extracted BHC sections. We cannot directly compare our extraction count to their 109K.
 
 ### Header distribution
 
-The top header variants, from 50,988 successful extractions:
+The top header variants, from 51,131 successful extractions:
 
 | Header variant | Count | % |
 |----------------|------:|--:|
-| Brief Hospital Course: | 37,852 | 74.2% |
-| HOSPITAL COURSE: | 9,324 | 18.3% |
-| HOSPITAL COURSE (no colon) | 1,397 | 2.7% |
-| SUMMARY OF HOSPITAL COURSE | 1,256 | 2.5% |
-| BRIEF SUMMARY OF HOSPITAL COURSE | 211 | 0.4% |
-| CONCISE SUMMARY OF HOSPITAL COURSE | 290 | 0.6% |
+| Brief Hospital Course: | 37,980 | 74.3% |
+| HOSPITAL COURSE: | 9,435 | 18.5% |
+| HOSPITAL COURSE (no colon) | 1,420 | 2.8% |
+| SUMMARY OF HOSPITAL COURSE | 1,264 | 2.5% |
+| CONCISE SUMMARY OF HOSPITAL COURSE | 291 | 0.6% |
+| BRIEF SUMMARY OF HOSPITAL COURSE | 213 | 0.4% |
 | HISTORY OF HOSPITAL COURSE | 176 | 0.3% |
-| BRIEF HOSPITAL COURSE: (all-caps) | 110 | 0.2% |
-| NICU COURSE | 76 | 0.1% |
-| Other variants | 296 | 0.6% |
+| BRIEF HOSPITAL COURSE: (all-caps) | 113 | 0.2% |
+| NICU COURSE | 71 | 0.1% |
+| Other variants | 168 | 0.3% |
 
-"Brief Hospital Course:" (74.2%) is the standard header. "HOSPITAL COURSE:" (18.3%) is the main alternative.
+"Brief Hospital Course:" (74.3%) is the standard header. "HOSPITAL COURSE:" (18.5%) is the main alternative.
 
 ### End-boundary distribution
 
 | Boundary | Count | % |
 |----------|------:|--:|
-| Medications on Admission | 37,128 | 72.8% |
-| Discharge Diagnosis/Diagnoses | 6,079 | 11.9% |
-| (no boundary — extracted to end of note) | 3,673 | 7.2% |
-| Discharge Medications | 2,771 | 5.4% |
-| Medications on Discharge | 911 | 1.8% |
-| Discharge Instructions | 199 | 0.4% |
-| Discharge Disposition | 190 | 0.4% |
-| Other (Facility, Discharge Status, Follow-up, Attending, Diet) | 37 | 0.1% |
+| Medications on Admission | 37,094 | 72.6% |
+| Discharge Diagnosis/Diagnoses | 6,103 | 11.9% |
+| (no boundary — extracted to end of note) | 3,772 | 7.4% |
+| Discharge Medications | 2,799 | 5.5% |
+| Medications on Discharge | 915 | 1.8% |
+| Discharge Instructions | 203 | 0.4% |
+| Discharge Disposition | 199 | 0.4% |
+| Other (Condition on Discharge, Facility, Discharge Status, Follow-up, Attending, Diet) | 46 | 0.1% |
 
-"Medications on Admission" is the dominant end boundary (72.8%), listing the patient's pre-admission medications between the BHC narrative and the discharge medications section.
+"Medications on Admission" is the dominant end boundary (72.6%), listing the patient's pre-admission medications between the BHC narrative and the discharge medications section.
 
-3,673 extractions (7.2%) had no end boundary and were extracted to the end of the note. Manual inspection of a sample showed they consistently end with dictation metadata (e.g., "Dictated By:", "MEDQUIST36", "Job#") rather than clinical content from a subsequent section. These appear to be notes where the BHC is the last clinical section, followed only by dictation footers not in the end-boundary allowlist. The dictation metadata is included in the extracted text; downstream consumers may want to strip it.
+3,772 extractions (7.4%) had no end boundary and were extracted to the end of the note. Manual inspection of a sample showed they consistently end with dictation metadata (e.g., "Dictated By:", "MEDQUIST36", "Job#") rather than clinical content from a subsequent section. These appear to be notes where the BHC is the last clinical section, followed only by dictation footers not in the end-boundary allowlist. The dictation metadata is included in the extracted text; downstream consumers may want to strip it.
 
 ### BHC length distribution
 
 | Statistic | Characters |
 |-----------|----------:|
-| Mean | 3,029 |
+| Mean | 3,015 |
 | Median | 2,521 |
-| Q25 | 1,541 |
-| Q75 | 3,948 |
+| Q25 | 1,544 |
+| Q75 | 3,940 |
 | Min | 7 |
-| Max | 36,875 |
-| Short (<100 chars) | 20 |
+| Max | 34,170 |
+| Short (<100 chars) | 18 |
 
-20 extractions are shorter than the 100-character threshold. Lengths are reported in characters, not tokens, to avoid baking in a specific tokenizer choice at the extraction stage.
+18 extractions are shorter than the 100-character threshold. Lengths are reported in characters, not tokens, to avoid baking in a specific tokenizer choice at the extraction stage.
 
 These aggregate statistics mix narrative and domain-organized BHCs, which differ in length by roughly 2x. A separate structural analysis found median lengths of 1,669 chars (narrative) vs 3,241 chars (domain-organized) in MIMIC-III.
 
@@ -113,7 +113,7 @@ MIMIC-IV-Note does not require ISERROR filtering (erroneous notes were removed f
 
 Our 88.4% is a pure extraction success rate: we attempt extraction on all 331,793 notes and report how many succeed. Aali et al.'s 81.4% (270,033/331,794) is the output of their full pipeline, which includes a structural pre-filter, extraction, and a minimum length threshold. We cannot decompose their lower rate into per-stage losses because the intermediate counts are not published.
 
-The higher failure rate on MIMIC-IV (11.6%) compared to MIMIC-III (3.3%) reflects a larger proportion of notes that lack any recognizable BHC header. Inspection of 20 failed notes showed 13 with standard section headers (Chief Complaint, History of Present Illness, etc.) but no BHC section, suggesting these notes use a template that omits the Brief Hospital Course as a named section. Aali et al.'s structural pre-filter (`text[88:91] == 'Sex'`) would exclude many of these non-standard notes before extraction, which likely explains part of the rate difference.
+The higher failure rate on MIMIC-IV (11.6%) compared to MIMIC-III (3.0%) reflects a larger proportion of notes that lack any recognizable BHC header. Inspection of 20 failed notes showed 13 with standard section headers (Chief Complaint, History of Present Illness, etc.) but no BHC section, suggesting these notes use a template that omits the Brief Hospital Course as a named section. Aali et al.'s structural pre-filter (`text[88:91] == 'Sex'`) would exclude many of these non-standard notes before extraction, which likely explains part of the rate difference.
 
 Five `empty_section` failures were observed, where a BHC header was found but contained no text before the next section boundary.
 
@@ -202,9 +202,9 @@ Both extractors run on the same text for each of the 52,726 MIMIC-III admissions
 
 | Metric | Ours | Kruse |
 |--------|------|-------|
-| Success rate | 96.7% (50,988) | 85.0% (44,839) |
+| Success rate | 97.0% (51,131) | 85.0% (44,839) |
 
-Agreement breakdown:
+Agreement breakdown (from a prior run at 96.7% success rate; the agreement table has not been re-run after the "Condition on Discharge" end-boundary addition):
 
 | Category | Count | % |
 |----------|------:|--:|
@@ -255,7 +255,7 @@ In MIMIC-III (hadm_id REDACTED), a similar pattern appears: the BHC contains a t
 
 We scanned all successful extractions for markers of embedded content: lines matching "HPI:", "History of Present Illness:", "Past Medical History:", "PMH:", "Medications:", "Current Medications:", signature lines ("Signed by ... on"), and consult/admission note headers. These are heuristic markers, not a precise count — some matches may be legitimate BHC content (a clinician mentioning "Medications:" as a sub-header within a domain-organized course), and some embedded content may not match any of these patterns.
 
-| Marker | MIMIC-III (50,988 successful) | MIMIC-IV (293,329 successful) |
+| Marker | MIMIC-III (51,131 successful) | MIMIC-IV (293,329 successful) |
 |--------|-------------------------------|-------------------------------|
 | Any marker found | 1,098 (2.2%) | 788 (0.3%) |
 | Embedded meds list | 1,019 (2.00%) | 571 (0.19%) |
