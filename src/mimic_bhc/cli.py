@@ -27,7 +27,7 @@ def _run_discover(args: argparse.Namespace) -> int:
     results = discover_headers_from_file(
         input_path=args.input,
         format_hint=args.format,
-        sample_size=args.sample,
+        sample_size=args.notes,
     )
 
     if not results:
@@ -95,10 +95,10 @@ def _add_discover_args(parser: argparse.ArgumentParser) -> None:
         help="Input format (default: auto-detect by checking for CATEGORY column)",
     )
     parser.add_argument(
-        "--sample",
+        "--notes",
         type=int,
         default=500,
-        help="Number of notes to sample (default: 500, 0 for all notes)",
+        help="Number of discharge notes to scan for headers (default: 500, 0 for all)",
     )
 
 

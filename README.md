@@ -51,7 +51,7 @@ mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json
 ```
 
-Extract all BHCs from a MIMIC notes file into JSON Lines format (one JSON object per line, good for programmatic use) -  it will take a few minutes:
+Extract all BHCs from a MIMIC notes file into JSON Lines format (one JSON object per line, good for programmatic use) - it will take a few minutes:
 
 ```bash
 mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jsonl
@@ -67,10 +67,15 @@ The current patterns cover many common variants of BHC headers and end boundarie
 # Simplify the command - replace with your path
 export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
 
-mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz
+# Omit the --notes flag to use the default (500 notes), or set to 0 to scan all notes
+uv run mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz --notes 100
 ```
 
-This samples notes (default 500, use `--sample 0` for all), scans for lines that look like section headers, and prints a frequency table with each header's role: "BHC header" (matched by start patterns), "End boundary" (matched by end-boundary patterns), or "Other" (not currently recognized). See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
+The command scans discharge notes for lines that look like section headers. The output is a frequency table of matches found across all scanned notes, not one row per note. Each match is labeled with its role: "BHC header" (matched by current patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either).
+
+The "Other" category includes lines that look like headers but are not currently recognized as BHC headers or end boundaries. Some of these may be rare variants that could be added to the patterns, while others may be non-BHC sections that are not relevant for extraction. The frequency table helps identify which headers are common and whether they are currently captured by the patterns. While adding more variants to the patterns can increase extraction coverage, it also risks false positives if the pattern becomes too permissive. The discovery tool helps balance this tradeoff by showing what headers exist in the notes and how they are currently classified.
+
+See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
 
 ### Python API
 
