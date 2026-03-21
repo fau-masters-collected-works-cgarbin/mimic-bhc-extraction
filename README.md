@@ -111,7 +111,7 @@ for r in results:
 Parameters:
 
 - `input_path`: Path to the MIMIC notes file (CSV, gzipped CSV, or Parquet).
-- `format_hint`: `"mimic3"`, `"mimic4"`, or `"auto"` (default). Auto-detection uses the filename.
+- `format_hint`: `"mimic3"`, `"mimic4"`, or `"auto"` (default). Auto-detection checks for a `CATEGORY` column in the CSV header.
 - `sample_size`: If set, extracts from a random sample of N admissions.
 
 ## Output Format
