@@ -53,7 +53,7 @@ def _process_note(
     iserror: int | None = None,
 ) -> BHCResult:
     """Extract BHC, classify structure, and enrich with note metadata."""
-    result = extract_bhc(note_text, hadm_id=hadm_id, note_row_id=row_id)
+    result = extract_bhc(note_text)
 
     structure = None
     if result.success and result.bhc_text:
@@ -61,6 +61,8 @@ def _process_note(
 
     return dataclasses.replace(
         result,
+        hadm_id=hadm_id,
+        note_row_id=row_id,
         subject_id=subject_id,
         chartdate=chartdate,
         note_length=note_length,

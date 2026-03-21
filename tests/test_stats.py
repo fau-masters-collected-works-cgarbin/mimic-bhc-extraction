@@ -7,7 +7,6 @@ from mimic_bhc.stats import compute_bhc_stats
 
 
 def _make_bhc_result(
-    hadm_id: int,
     *,
     success: bool = True,
     bhc_text: str | None = "Short text.",
@@ -18,7 +17,6 @@ def _make_bhc_result(
 ) -> BHCResult:
     """Build a BHCResult for stats tests."""
     return BHCResult(
-        hadm_id=hadm_id,
         success=success,
         bhc_text=bhc_text if success else None,
         start_header=start_header if success else None,
@@ -42,21 +40,18 @@ class TestComputeBhcStats:
     def test_stats_on_known_input(self):
         results = [
             _make_bhc_result(
-                1,
                 bhc_text="Short text.",
                 start_header="Brief Hospital Course:",
                 end_header="Medications on Discharge",
                 bhc_format="chronological",
             ),
             _make_bhc_result(
-                2,
                 bhc_text="A longer piece of text here.",
                 start_header="Hospital Course:",
                 end_header="Discharge Condition",
                 bhc_format="problem_oriented",
             ),
             _make_bhc_result(
-                3,
                 success=False,
                 failure_reason="no_header",
             ),
@@ -80,9 +75,9 @@ class TestComputeBhcStats:
 
     def test_short_extractions_threshold(self):
         results = [
-            _make_bhc_result(1, bhc_text="x" * 50),
-            _make_bhc_result(2, bhc_text="x" * 100),
-            _make_bhc_result(3, bhc_text="x" * 200),
+            _make_bhc_result(bhc_text="x" * 50),
+            _make_bhc_result(bhc_text="x" * 100),
+            _make_bhc_result(bhc_text="x" * 200),
         ]
 
         stats = compute_bhc_stats(results)

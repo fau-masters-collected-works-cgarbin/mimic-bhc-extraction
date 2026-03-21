@@ -15,8 +15,10 @@ from tests.test_extract import NO_HEADER_NOTE, STANDARD_NOTE
 # ---------------------------------------------------------------------------
 class TestBHCResultEnrichment:
     def test_default_enrichment_fields(self):
-        """New enrichment fields should default to None/empty."""
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100)
+        """Enrichment fields should default to None/empty."""
+        result = extract_bhc(STANDARD_NOTE)
+        assert result.hadm_id is None
+        assert result.note_row_id is None
         assert result.subject_id is None
         assert result.chartdate is None
         assert result.note_length is None
@@ -25,16 +27,20 @@ class TestBHCResultEnrichment:
 
     def test_enrichment_via_replace(self):
         """Callers enrich BHCResult using dataclasses.replace()."""
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100)
+        result = extract_bhc(STANDARD_NOTE)
         structure = StructureResult(category="narrative")
         enriched = dataclasses.replace(
             result,
+            hadm_id=100,
+            note_row_id="42",
             subject_id=42,
             chartdate="2150-01-01",
             note_length=len(STANDARD_NOTE),
             quality_flags=("below_min_length",),
             bhc_structure=structure,
         )
+        assert enriched.hadm_id == 100
+        assert enriched.note_row_id == "42"
         assert enriched.subject_id == 42
         assert enriched.chartdate == "2150-01-01"
         assert enriched.note_length == len(STANDARD_NOTE)
@@ -42,31 +48,32 @@ class TestBHCResultEnrichment:
         assert enriched.bhc_structure is structure
         # Original extraction fields preserved
         assert enriched.bhc_text == result.bhc_text
-        assert enriched.hadm_id == 100
 
     def test_bhc_char_count_property(self):
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100)
+        result = extract_bhc(STANDARD_NOTE)
         assert result.bhc_char_count == len(result.bhc_text)
 
     def test_bhc_char_count_none_when_no_text(self):
-        result = extract_bhc(NO_HEADER_NOTE, hadm_id=100)
+        result = extract_bhc(NO_HEADER_NOTE)
         assert result.bhc_char_count == 0
 
     def test_bhc_word_count_property(self):
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100)
+        result = extract_bhc(STANDARD_NOTE)
         assert result.bhc_word_count == len(result.bhc_text.split())
 
     def test_bhc_word_count_none_when_no_text(self):
-        result = extract_bhc(NO_HEADER_NOTE, hadm_id=100)
+        result = extract_bhc(NO_HEADER_NOTE)
         assert result.bhc_word_count == 0
 
 
 class TestBHCResultSerialization:
     def test_to_dict_contains_all_fields(self):
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100, note_row_id="42")
+        result = extract_bhc(STANDARD_NOTE)
         structure = StructureResult(category="narrative")
         enriched = dataclasses.replace(
             result,
+            hadm_id=100,
+            note_row_id="42",
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
@@ -98,7 +105,7 @@ class TestBHCResultSerialization:
         assert d["note_length"] == 500
 
     def test_to_dict_failed_extraction(self):
-        result = extract_bhc(NO_HEADER_NOTE, hadm_id=100)
+        result = extract_bhc(NO_HEADER_NOTE)
         d = result.to_dict()
         assert d["extraction_success"] is False
         assert d["failure_reason"] == "no_header"
@@ -109,10 +116,12 @@ class TestBHCResultSerialization:
 
     def test_from_dict_roundtrip(self):
         """from_dict(to_dict(result)) should reconstruct an equivalent BHCResult."""
-        result = extract_bhc(STANDARD_NOTE, hadm_id=100, note_row_id="42")
+        result = extract_bhc(STANDARD_NOTE)
         structure = StructureResult(category="domain_organized", labeled_section_count=3)
         enriched = dataclasses.replace(
             result,
+            hadm_id=100,
+            note_row_id="42",
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
@@ -127,6 +136,7 @@ class TestBHCResultSerialization:
         assert reconstructed.start_header == enriched.start_header
         assert reconstructed.end_header == enriched.end_header
         assert reconstructed.failure_reason == enriched.failure_reason
+        assert reconstructed.note_row_id == enriched.note_row_id
         assert reconstructed.subject_id == enriched.subject_id
         assert reconstructed.chartdate == enriched.chartdate
         assert reconstructed.note_length == enriched.note_length
@@ -136,7 +146,7 @@ class TestBHCResultSerialization:
         assert reconstructed.bhc_end == enriched.bhc_end
 
     def test_from_dict_failed_extraction(self):
-        result = extract_bhc(NO_HEADER_NOTE, hadm_id=100)
+        result = extract_bhc(NO_HEADER_NOTE)
         d = result.to_dict()
         reconstructed = BHCResult.from_dict(d)
         assert reconstructed.success is False

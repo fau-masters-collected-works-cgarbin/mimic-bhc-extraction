@@ -18,17 +18,17 @@ from mimic_bhc.patterns import (
 __all__ = ["BHCResult", "extract_bhc"]
 
 
-def extract_bhc(note_text: str, hadm_id: int = 0, note_row_id: str | None = None) -> BHCResult:
+def extract_bhc(note_text: str) -> BHCResult:
     """Extract the Brief Hospital Course section from a discharge note.
 
     Finds the BHC header, then captures text until the next top-level section
     boundary or end of note.  Returns a BHCResult with extraction metadata.
+
+    This is a pure text-in/result-out function. It does not know about
+    admission IDs, note metadata, or structure classification. Callers
+    enrich the result with that context via dataclasses.replace().
     """
     # Try each header pattern in priority order (most specific first).
-    # Use the first match from the highest-priority pattern that matches
-    # anywhere in the note, avoiding false positives from less specific
-    # patterns (e.g., bare "hospital course" when "Brief Hospital Course"
-    # exists later in the note).
     header_match = None
     for pattern in _BHC_HEADER_PRIORITY:
         header_match = pattern.search(note_text)
@@ -36,13 +36,11 @@ def extract_bhc(note_text: str, hadm_id: int = 0, note_row_id: str | None = None
             break
     if header_match is None:
         return BHCResult(
-            hadm_id=hadm_id,
             success=False,
             bhc_text=None,
             start_header=None,
             end_header=None,
             failure_reason="no_header",
-            note_row_id=note_row_id,
         )
 
     start_header = header_match.group(0).strip()
@@ -63,30 +61,25 @@ def extract_bhc(note_text: str, hadm_id: int = 0, note_row_id: str | None = None
 
     if not bhc_text:
         return BHCResult(
-            hadm_id=hadm_id,
             success=False,
             bhc_text=None,
             start_header=start_header,
             end_header=end_header,
             failure_reason="empty_section",
-            note_row_id=note_row_id,
         )
 
     # Compute offsets of the stripped BHC text within the original note.
-    # raw_text starts at body_start; find where the stripped content begins.
     lstrip_offset = len(raw_text) - len(raw_text.lstrip())
     bhc_start_offset = body_start + lstrip_offset
     bhc_end_offset = bhc_start_offset + len(bhc_text)
 
     return BHCResult(
-        hadm_id=hadm_id,
         success=True,
         bhc_text=bhc_text,
         start_header=start_header,
         end_header=end_header,
         failure_reason=None,
         bhc_format=classify_bhc_format(bhc_text),
-        note_row_id=note_row_id,
         bhc_start=bhc_start_offset,
         bhc_end=bhc_end_offset,
     )

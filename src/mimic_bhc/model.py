@@ -17,26 +17,26 @@ class BHCResult:
     """Result of extracting a BHC section from a single note.
 
     Fields are populated in layers (see docs/extraction-design.md):
-    - Extraction layer (extract_bhc): bhc_text, start_header, end_header,
-      bhc_start, bhc_end, success, failure_reason, bhc_format.
-    - Pass-through identifiers: hadm_id, note_row_id.
-    - Enrichment layer (callers via dataclasses.replace): subject_id,
-      chartdate, note_length, quality_flags, bhc_structure.
+    - Extraction layer (extract_bhc): success, bhc_text, start_header,
+      end_header, bhc_start, bhc_end, failure_reason, bhc_format.
+    - Enrichment layer (callers via dataclasses.replace): hadm_id,
+      note_row_id, subject_id, chartdate, note_length, quality_flags,
+      bhc_structure.
     """
 
-    # --- Extraction layer + pass-through identifiers ---
-    hadm_id: int
+    # --- Extraction layer ---
     success: bool
     bhc_text: str | None
     start_header: str | None
     end_header: str | None
     failure_reason: str | None  # "no_header" | "empty_section" | None
     bhc_format: str | None = None  # "chronological" | "problem_oriented" | None
-    note_row_id: str | None = None
     bhc_start: int | None = None
     bhc_end: int | None = None
 
     # --- Enrichment layer (filled by callers) ---
+    hadm_id: int | None = None
+    note_row_id: str | None = None
     subject_id: int | None = None
     chartdate: str | None = None
     note_length: int | None = None
@@ -107,16 +107,16 @@ class BHCResult:
             )
 
         return cls(
-            hadm_id=d["hadm_id"],
             success=d["extraction_success"],
             bhc_text=d.get("bhc_text"),
             start_header=d.get("start_header"),
             end_header=d.get("end_header"),
             failure_reason=d.get("failure_reason"),
             bhc_format=d.get("bhc_format"),
-            note_row_id=d.get("row_id"),
             bhc_start=d.get("bhc_start"),
             bhc_end=d.get("bhc_end"),
+            hadm_id=d.get("hadm_id"),
+            note_row_id=d.get("row_id"),
             subject_id=d.get("subject_id"),
             chartdate=d.get("chartdate"),
             note_length=d.get("note_length"),

@@ -9,7 +9,7 @@ from mimic_bhc.structure import StructureResult
 
 
 def _make_result(
-    hadm_id: int,
+    hadm_id: int = 1,
     *,
     success: bool = True,
     bhc_text: str = "Patient was admitted for chest pain.",
@@ -20,12 +20,12 @@ def _make_result(
     """Build a BHCResult for CLI stats tests."""
     structure = StructureResult(category=category) if success else None
     return BHCResult(
-        hadm_id=hadm_id,
         success=success,
         bhc_text=bhc_text if success else None,
         start_header=start_header if success else None,
         end_header=end_header if success else None,
         failure_reason=None if success else "no_header",
+        hadm_id=hadm_id,
         note_row_id=str(hadm_id),
         subject_id=1,
         chartdate="2150-01-01",
@@ -38,7 +38,7 @@ def _make_result(
 
 
 def _make_record(
-    hadm_id: int,
+    hadm_id: int = 1,
     *,
     success: bool = True,
     bhc_text: str = "Patient was admitted for chest pain.",

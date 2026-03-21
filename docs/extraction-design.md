@@ -8,9 +8,9 @@ How the BHC extractor works: the algorithm, its assumptions, and the decisions b
 
 `BHCResult` fields are populated in layers. Each layer fills in the fields it owns and passes the result forward using `dataclasses.replace()`:
 
-1. **Extraction layer** (`extract_bhc()`). Regex matching, boundary detection, text slicing. Fills in: `bhc_text`, `start_header`, `end_header`, `bhc_start`, `bhc_end`, `success`, `failure_reason`. Also receives pass-through identifiers from the caller: `hadm_id`, `note_row_id`.
+1. **Extraction layer** (`extract_bhc()`). Takes a note string, nothing else. Regex matching, boundary detection, text slicing. Fills in: `success`, `bhc_text`, `start_header`, `end_header`, `bhc_start`, `bhc_end`, `failure_reason`, `bhc_format`.
 
-2. **Enrichment layer** (callers like `_process_note()`). Adds context that the extraction layer does not have access to: `subject_id`, `chartdate`, `note_length`. Computes derived fields: `quality_flags`, `bhc_structure` (via `classify_bhc_structure()`).
+2. **Enrichment layer** (callers like `_process_note()`). Adds all context that the extraction layer does not have access to: identifiers (`hadm_id`, `note_row_id`, `subject_id`), note metadata (`chartdate`, `note_length`), and derived fields (`quality_flags`, `bhc_structure` via `classify_bhc_structure()`).
 
 3. **Serialization layer** (`BHCResult.to_dict()`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually.
 

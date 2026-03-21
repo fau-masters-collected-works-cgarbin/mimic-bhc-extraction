@@ -65,7 +65,7 @@ mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jso
 from mimic_bhc import extract_bhc, classify_bhc_structure
 
 note = "Brief Hospital Course:\nPatient was admitted for chest pain..."
-result = extract_bhc(note, hadm_id=12345)
+result = extract_bhc(note)
 
 if result.success:
     print(result.bhc_text)         # extracted text
