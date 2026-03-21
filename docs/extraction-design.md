@@ -10,7 +10,7 @@ How the BHC extractor works: the algorithm, its assumptions, and the decisions b
 
 1. **Extraction layer** (`extract_bhc()` in `mimic_bhc/extract.py`). Takes a note string, nothing else. Fills in all fields that can be derived directly from text extraction: the extracted text, matched headers, character offsets, and success/failure status. Patterns live in `mimic_bhc/patterns.py`.
 
-2. **Enrichment layer** (callers like `_process_note()` in `mimic_bhc/batch.py`). Adds context that the extraction layer does not have access to: record identifiers, note metadata, quality flags, and structure classification.
+2. **Enrichment layer** (callers like `_process_note()` and `_select_best_per_admission()` in `mimic_bhc/batch.py`). Adds context that the extraction layer does not have access to: record identifiers, note metadata, quality flags, and structure classification.
 
 3. **Serialization layer** (`BHCResult.to_dict()` in `mimic_bhc/model.py`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually. `BHCResult.from_dict()` reverses the mapping for loading JSON back into objects.
 

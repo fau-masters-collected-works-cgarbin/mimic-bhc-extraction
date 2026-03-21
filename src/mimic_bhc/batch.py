@@ -50,6 +50,8 @@ def _process_note(
     note_text: str,
     note_length: int,
     iserror: int | None = None,
+    *,
+    include_note_text: bool = False,
 ) -> BHCResult:
     """Extract BHC, classify structure, and enrich with note metadata."""
     result = extract_bhc(note_text)
@@ -65,6 +67,7 @@ def _process_note(
         subject_id=subject_id,
         chartdate=chartdate,
         note_length=note_length,
+        note_text=note_text if include_note_text else None,
         quality_flags=_build_quality_flags(result, iserror),
         bhc_structure=structure,
     )
@@ -106,6 +109,8 @@ def _column_map(*, is_mimic3: bool, columns: list[str]) -> _ColumnMap:
 def _select_best_per_admission(
     group: pd.DataFrame,
     cols: _ColumnMap,
+    *,
+    include_note_text: bool = False,
 ) -> BHCResult:
     """Process all notes for one admission and return the best result.
 
@@ -133,6 +138,7 @@ def _select_best_per_admission(
             note_text=note_text,
             note_length=len(note_text),
             iserror=iserror,
+            include_note_text=include_note_text,
         )
 
         bhc_len = note_result.bhc_char_count
@@ -141,7 +147,10 @@ def _select_best_per_admission(
             best_result = note_result
 
     # best_result is always set because group is never empty (groupby guarantees it)
-    return best_result  # type: ignore[return-value]
+    return dataclasses.replace(
+        best_result,  # type: ignore[arg-type]
+        note_row_count=len(group),
+    )
 
 
 def extract_from_file(
@@ -149,6 +158,7 @@ def extract_from_file(
     format_hint: str = "auto",
     *,
     sample_size: int | None = None,
+    include_note_text: bool = False,
 ) -> list[BHCResult]:
     """Extract BHC from discharge summaries in a CSV/parquet file.
 
@@ -160,6 +170,8 @@ def extract_from_file(
         input_path: Path to NOTEEVENTS CSV/parquet (MIMIC-III or MIMIC-IV format)
         format_hint: 'mimic3', 'mimic4', or 'auto' (default: auto-detect)
         sample_size: Extract from random sample of N admissions (optional)
+        include_note_text: Include the full original note text in each result
+            (default: False, to keep output size small)
 
     Returns:
         List of BHCResult, one per admission (including failed extractions).
@@ -187,4 +199,7 @@ def extract_from_file(
         sampled_ids = unique_ids.sample(n=min(sample_size, len(unique_ids)), random_state=42)
         notes = notes[notes[cols.hadm_id].isin(sampled_ids)]
 
-    return [_select_best_per_admission(group, cols) for _, group in notes.groupby(cols.hadm_id)]
+    return [
+        _select_best_per_admission(group, cols, include_note_text=include_note_text)
+        for _, group in notes.groupby(cols.hadm_id)
+    ]

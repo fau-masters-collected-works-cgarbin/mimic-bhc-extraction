@@ -22,6 +22,8 @@ class TestBHCResultEnrichment:
         assert result.subject_id is None
         assert result.chartdate is None
         assert result.note_length is None
+        assert result.note_text is None
+        assert result.note_row_count is None
         assert result.quality_flags == ()
         assert result.bhc_structure is None
 
@@ -77,6 +79,8 @@ class TestBHCResultSerialization:
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
+            note_text=STANDARD_NOTE,
+            note_row_count=2,
             quality_flags=(),
             bhc_structure=structure,
         )
@@ -103,6 +107,8 @@ class TestBHCResultSerialization:
         assert d["bhc_start"] == enriched.bhc_start
         assert d["bhc_end"] == enriched.bhc_end
         assert d["note_length"] == 500
+        assert d["note_text"] == STANDARD_NOTE
+        assert d["note_row_count"] == 2
 
     def test_to_dict_failed_extraction(self):
         result = extract_bhc(NO_HEADER_NOTE)
@@ -125,6 +131,8 @@ class TestBHCResultSerialization:
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
+            note_text=STANDARD_NOTE,
+            note_row_count=3,
             quality_flags=("unbounded",),
             bhc_structure=structure,
         )
@@ -138,3 +146,13 @@ class TestBHCResultSerialization:
         assert reconstructed.success is False
         assert reconstructed.bhc_text is None
         assert reconstructed.bhc_structure is None
+
+    def test_from_dict_backward_compat_missing_new_fields(self):
+        """from_dict() should default note_row_count and note_text to None when missing."""
+        result = extract_bhc(STANDARD_NOTE)
+        d = result.to_dict()
+        del d["note_row_count"]
+        del d["note_text"]
+        reconstructed = BHCResult.from_dict(d)
+        assert reconstructed.note_row_count is None
+        assert reconstructed.note_text is None

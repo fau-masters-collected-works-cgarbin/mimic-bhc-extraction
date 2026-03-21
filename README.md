@@ -35,6 +35,7 @@ Options:
 - `--format`: Input format: `mimic3`, `mimic4`, or `auto` (default: auto-detect).
 - `--pretty`: Write a single pretty-printed JSON array instead of JSONL.
 - `--sample`: Extract from random sample of N admissions (optional - all notes are extracted if not specified).
+- `--include-note-text`: Include the full original discharge note text in each output record (off by default to keep output size small).
 
 The extractor finds the BHC section using [header pattern matching](docs/extraction-design.md#header-patterns), determines where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output Format](#output-format) for the full schema.
 
@@ -113,6 +114,7 @@ Parameters:
 - `input_path`: Path to the MIMIC notes file (CSV, gzipped CSV, or Parquet).
 - `format_hint`: `"mimic3"`, `"mimic4"`, or `"auto"` (default). Auto-detection checks for a `CATEGORY` column in the CSV header.
 - `sample_size`: If set, extracts from a random sample of N admissions.
+- `include_note_text`: If `True`, includes the full original note text in each result (default: `False`).
 
 ## Output Format
 
@@ -141,6 +143,8 @@ Each record contains:
 - `bhc_start`: Start character offset in original note.
 - `bhc_end`: End character offset in original note.
 - `note_length`: Original note character count.
+- `note_text`: Full original discharge note text (null unless `--include-note-text` is used).
+- `note_row_count`: Number of note rows for this admission before deduplication (null when using the single-note API). Always 1 for MIMIC-IV (one row per admission). Greater than 1 in MIMIC-III when addendums exist (e.g., 2 means original + one addendum).
 
 Extraction fails (`extraction_success: false`) when no recognizable BHC header is found in the note (`failure_reason: "no_header"`) or when the region between the header and the end boundary is empty (`failure_reason: "empty_section"`). See [Two-phase extraction](docs/extraction-design.md#two-phase-extraction) for how the extractor determines success or failure.
 

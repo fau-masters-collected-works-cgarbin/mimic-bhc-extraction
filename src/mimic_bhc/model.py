@@ -38,6 +38,8 @@ class BHCResult:
     subject_id: int | None = None
     chartdate: str | None = None
     note_length: int | None = None
+    note_text: str | None = None
+    note_row_count: int | None = None
     quality_flags: tuple[str, ...] = ()
     bhc_structure: StructureResult | None = None
 
@@ -83,6 +85,8 @@ class BHCResult:
             "bhc_start": self.bhc_start,
             "bhc_end": self.bhc_end,
             "note_length": self.note_length,
+            "note_text": self.note_text,
+            "note_row_count": self.note_row_count,
         }
 
     @classmethod
@@ -117,6 +121,8 @@ class BHCResult:
             subject_id=d.get("subject_id"),
             chartdate=d.get("chartdate"),
             note_length=d.get("note_length"),
+            note_text=d.get("note_text"),
+            note_row_count=d.get("note_row_count"),
             quality_flags=tuple(d.get("quality_flags", ())),
             bhc_structure=structure,
         )

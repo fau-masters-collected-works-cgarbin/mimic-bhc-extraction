@@ -247,6 +247,39 @@ class TestSamplingOption:
         assert len(results) == 3
 
 
+class TestNoteTextAndAddendumCount:
+    def test_note_text_omitted_by_default(self, mimic3_noteevents_gz):
+        """note_text should be None when include_note_text is not set."""
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
+        for r in results:
+            assert r.note_text is None
+
+    def test_note_text_included_when_requested(self, mimic3_noteevents_gz):
+        """note_text should contain the full note when include_note_text=True."""
+        results = extract_from_file(
+            str(mimic3_noteevents_gz), format_hint="mimic3", include_note_text=True
+        )
+        for r in results:
+            assert r.note_text is not None
+            assert len(r.note_text) > 0
+
+    def test_note_row_count_single_row(self, mimic4_discharge_gz):
+        """Admissions with one row should have note_row_count=1."""
+        results = extract_from_file(str(mimic4_discharge_gz), format_hint="mimic4")
+        for r in results:
+            assert r.note_row_count == 1
+
+    def test_note_row_count_multiple_rows(self, mimic3_noteevents_gz):
+        """MIMIC-III admissions with addendums should have note_row_count > 1."""
+        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
+        hadm_100 = next(r for r in results if r.hadm_id == 100)
+        # hadm_id 100 has 2 rows (original + addendum)
+        assert hadm_100.note_row_count == 2
+        # hadm_id 200 has 1 row
+        hadm_200 = next(r for r in results if r.hadm_id == 200)
+        assert hadm_200.note_row_count == 1
+
+
 class TestQualityFlags:
     def _make_result(self, *, bhc_text="x" * 200, end_header="Medications on Discharge"):
         return BHCResult(

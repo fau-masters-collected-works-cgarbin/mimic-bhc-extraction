@@ -33,6 +33,7 @@ def _run_extract(args: argparse.Namespace) -> int:
         input_path=args.input,
         format_hint=args.format,
         sample_size=args.sample,
+        include_note_text=args.include_note_text,
     )
     _write_results(results, args.output, pretty=args.pretty)
     print(f"BHC extraction complete. Output written to {args.output}")
@@ -166,6 +167,12 @@ def _add_extract_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=None,
         help="Extract from random sample of N admissions (optional, for testing)",
+    )
+    parser.add_argument(
+        "--include-note-text",
+        action="store_true",
+        help="Include the full original note text in each output record "
+        "(increases output size significantly)",
     )
 
 
