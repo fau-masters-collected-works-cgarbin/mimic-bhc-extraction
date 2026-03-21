@@ -59,19 +59,29 @@ mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jso
 
 ### Python API
 
-`extract_bhc()` extracts the BHC from a single discharge note string. Use this when you have individual notes from any source (not just MIMIC). It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/pipeline).
+`extract_bhc()` extracts the BHC from a single discharge note string and returns a `BHCResult`. It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/pipeline).
 
 ```python
 from mimic_bhc import extract_bhc, classify_bhc_structure
 
-result = extract_bhc("Brief Hospital Course:\nPatient was admitted...", hadm_id=12345)
+note = "Brief Hospital Course:\nPatient was admitted for chest pain..."
+result = extract_bhc(note, hadm_id=12345)
 
 if result.success:
-    print(result.bhc_text)
+    print(result.bhc_text)         # extracted text
+    print(result.bhc_char_count)   # character count (computed property)
+    print(result.start_header)     # e.g. "Brief Hospital Course:"
+    print(result.end_header)       # e.g. "Medications on Discharge", or None
 
-    # Classify structure
     structure = classify_bhc_structure(result.bhc_text)
-    print(structure.category)  # "narrative", "domain_organized", or "standardized_template"
+    print(structure.category)      # "narrative", "domain_organized", or "standardized_template"
+```
+
+`BHCResult.to_dict()` serializes to a dict matching the [output format](#output-format). `BHCResult.from_dict()` reconstructs from a dict (e.g. loaded from JSON output).
+
+```python
+d = result.to_dict()              # dict ready for json.dump()
+loaded = BHCResult.from_dict(d)   # reconstruct from JSON
 ```
 
 ## Output Format
@@ -149,8 +159,8 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 ## Design Principles
 
 - **No filtering**: All records appear in output with metadata (including failed extractions). Consumers decide what to filter.
-- **Two layers**: Core extraction (`extract_bhc`) and classification (`classify_bhc_structure`) depend only on the standard library and operate on a single note string. The batch layer reads MIMIC files, filters to discharge summaries, deduplicates addendums, and applies the core extraction to each note. The core logic is separate and reusable in any context where you have the note text.
-- **No database dependency in the public API**: The batch layer uses DuckDB internally for efficient file loading, but this is not exposed to consumers.
+- **Single data structure**: `BHCResult` is the canonical representation throughout. It is populated in layers: extraction (`extract_bhc` fills text, headers, offsets), enrichment (callers add metadata and structure classification via `dataclasses.replace()`), and serialization (`to_dict()` at the output boundary). See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for the full design.
+- **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch pipeline adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
 
 For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md).
 
