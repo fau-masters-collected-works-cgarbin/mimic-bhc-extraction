@@ -1,0 +1,164 @@
+# mimic-bhc-extraction
+
+Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV discharge summaries and classify their organizational structure.
+
+**Quick start:** [Installation](#installation) and [Usage](#usage) to run from a pip install. [Development](#development) to clone and run locally.
+
+## Features
+
+- **BHC Extraction**: Identifies and extracts the Brief Hospital Course section from discharge notes using pattern matching.
+- **Structure Classification**: Classifies extracted BHCs into three categories:
+  - **Narrative**: No labeled clinical sections.
+  - **Domain-organized**: Sections labeled by clinical domain (organ system, problem, etc.).
+  - **Standardized template**: NICU-style templates with fixed domain structure.
+- **Modifier Detection**: Identifies acute/chronic partitions and transitional care sections.
+- **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
+- **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, etc.).
+
+This package provides broader header pattern coverage than previous extraction tools, structure classification that enables analysis of how organizational format relates to generation tasks, and structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
+
+## Installation
+
+```bash
+pip install git+https://github.com/cgarbin/mimic-bhc-extraction.git
+```
+
+## Usage
+
+### Command-line
+
+Extract BHCs from a MIMIC notes file:
+
+```bash
+mimic-bhc-extract extract --input NOTEEVENTS.csv.gz --output bhc.jsonl
+```
+
+The pipeline locates the BHC section in each note using [header pattern matching](docs/extraction-design.md#header-patterns), finds where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output Format](#output-format) for the full schema.
+
+Options:
+
+- `--input`: Path to the MIMIC notes file: `NOTEEVENTS.csv.gz` for MIMIC-III or `discharge.csv.gz` for MIMIC-IV-Note (required).
+- `--output`: Path to output file (required).
+- `--format`: Input format: `mimic3`, `mimic4`, or `auto` (default: auto-detect).
+- `--pretty`: Write a single pretty-printed JSON array instead of JSONL.
+- `--sample`: Extract from random sample of N admissions (optional).
+
+### Discovering section headers
+
+To see what section headers exist in a MIMIC notes file and how they map to the extractor's current patterns:
+
+```bash
+mimic-bhc-extract discover --input NOTEEVENTS.csv.gz
+```
+
+This samples notes (default 500, use `--sample 0` for all), scans for lines that look like section headers, and prints a frequency table with each header's role: "BHC header" (matched by start patterns), "End boundary" (matched by end-boundary patterns), or "Other" (not currently recognized). See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
+
+### Python API
+
+`extract_bhc()` extracts the BHC from a single discharge note string. Use this when you have individual notes from any source (not just MIMIC). It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/pipeline).
+
+```python
+from mimic_bhc import extract_bhc, classify_bhc_structure
+
+result = extract_bhc("Brief Hospital Course:\nPatient was admitted...", hadm_id=12345)
+
+if result.success:
+    print(result.bhc_text)
+
+    # Classify structure
+    structure = classify_bhc_structure(result.bhc_text)
+    print(structure.category)  # "narrative", "domain_organized", or "standardized_template"
+```
+
+## Output Format
+
+By default, output is [JSON Lines](https://jsonlines.org/) (JSONL): one JSON object per line, one per admission. Use `--pretty` for a single pretty-printed JSON array.
+
+Each record contains:
+
+- `hadm_id`: Hospital admission ID.
+- `subject_id`: Subject ID.
+- `row_id`: Note row identifier.
+- `chartdate`: Date of note (if available).
+- `bhc_text`: Extracted BHC text (null if extraction failed).
+- `bhc_char_count`: Character count of BHC.
+- `bhc_word_count`: Word count of BHC.
+- `header_pattern`: Matched header text.
+- `end_boundary`: Matched end boundary section.
+- `extraction_success`: Boolean success flag.
+- `failure_reason`: "no_header" or "empty_section" (if failed).
+- `quality_flags`: List of quality flags (e.g., "below_min_length", "unbounded", "iserror").
+- `bhc_structure`: Structure classification object:
+  - `category`: "narrative", "domain_organized", or "standardized_template".
+  - `numbering_convention`: Convention used for labeling (e.g., "N.", "#", "standalone").
+  - `modifiers`: List of structural modifiers.
+  - `nicu_domain_count`: Number of NICU domains (for templates).
+  - `labeled_section_count`: Number of labeled sections (for domain-organized).
+- `bhc_start`: Character offset in original note.
+- `bhc_end`: End character offset in original note.
+- `note_length`: Original note character count.
+
+Extraction fails (`extraction_success: false`) when no recognizable BHC header is found in the note (`failure_reason: "no_header"`) or when the region between the header and the end boundary is empty (`failure_reason: "empty_section"`). See [Two-phase extraction](docs/extraction-design.md#two-phase-extraction) for how the extractor determines success or failure.
+
+`iserror` is a MIMIC-III-specific quality flag, not a failure condition. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired.
+
+## MIMIC Format Support
+
+### MIMIC-III
+
+- Input: `NOTEEVENTS.csv.gz` (PhysioNet MIMIC-III v1.4). Expected columns: HADM_ID, SUBJECT_ID, ROW_ID, TEXT, CATEGORY, CHARTDATE, ISERROR.
+- Filters to CATEGORY = 'Discharge summary'.
+- Handles multiple notes per admission (addendums) — keeps one with longest BHC.
+
+### MIMIC-IV
+
+- Input: `discharge.csv.gz` (PhysioNet MIMIC-IV-Note v2.2). Expected columns: hadm_id, subject_id, note_id, text, charttime.
+- No filtering needed (discharge table contains only discharge summaries).
+- One row per admission.
+
+## Design Principles
+
+- **No filtering**: All records appear in output with metadata (including failed extractions). Consumers decide what to filter.
+- **Two layers**: Core extraction (`extract_bhc`) and classification (`classify_bhc_structure`) depend only on the standard library and operate on a single note string. The batch layer reads MIMIC files, filters to discharge summaries, deduplicates addendums, and applies the core extraction to each note. The core logic is separate and reusable in any context where you have the note text.
+- **No database dependency in the public API**: The batch layer uses DuckDB internally for efficient file loading, but this is not exposed to consumers.
+
+For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md).
+
+## Development
+
+Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
+
+### Setup
+
+```bash
+uv sync
+pre-commit install
+```
+
+This installs all dependencies (including dev/test) and enables pre-commit hooks that run ruff on every commit (lint + format).
+
+### Running locally
+
+After setup, use `uv run` to invoke the CLI within the project environment:
+
+```bash
+uv run mimic-bhc-extract extract --input NOTEEVENTS.csv.gz --output bhc.jsonl
+uv run mimic-bhc-extract discover --input NOTEEVENTS.csv.gz
+```
+
+This is the local equivalent of the commands shown in the Usage section.
+
+### Running tests
+
+```bash
+uv run pytest
+```
+
+### Linting and formatting
+
+```bash
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
+```
+
+These run automatically on commit via pre-commit hooks, but can be run manually to check before committing.
