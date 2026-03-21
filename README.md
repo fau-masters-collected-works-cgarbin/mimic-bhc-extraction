@@ -15,7 +15,7 @@ Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV dischar
 - **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
 - **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, etc.).
 
-This package provides broader header pattern coverage than previous extraction tools, structure classification that enables analysis of how organizational format relates to generation tasks, and structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
+Compared to previous extraction tools, this package provides broader header pattern coverage, structure classification that connects organizational format to generation tasks, and structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
 
 ## Installation
 
@@ -113,14 +113,12 @@ Extraction fails (`extraction_success: false`) when no recognizable BHC header i
 The `stats` command reads extraction output (JSON or JSONL from the `extract` command) and prints a summary: success/failure counts, header and end-header distributions, BHC length statistics, and structure classification distribution.
 
 ```bash
-uv run  mimic-bhc-extract stats --input bhc.jsonl
+uv run mimic-bhc-extract stats --input bhc.jsonl
 ```
 
 ### Discovering section headers
 
-BHC extraction relies on regex patterns that match the section header introducing the BHC and the section headers that follow it. These patterns were developed through an iterative process of sampling notes, identifying candidate headers, and classifying them based on whether they match the current patterns. This approach is described in [docs/extraction-design.md](docs/extraction-design.md#pattern-development-process).
-
-The current patterns cover many common variants of BHC headers and end boundaries, but there may be edge cases or rare variants that are not yet covered. If you want to improve or extend the patterns, or understand what headers exist in the notes and how they are classified by the current patterns, you can use the `discover` command.
+The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
 
 ```bash
 # Simplify the command - replace with your path
@@ -130,19 +128,13 @@ export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
 uv run mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz --notes 100
 ```
 
-The command scans discharge notes for lines that look like section headers. The output is a frequency table of matches found across all scanned notes, not one row per note. Each match is labeled with its role: "BHC header" (matched by current patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either).
-
-The "Other" category includes lines that look like headers but are not currently recognized as BHC headers or end boundaries. Some of these may be rare variants that could be added to the patterns, while others may be non-BHC sections that are not relevant for extraction. The frequency table helps identify which headers are common and whether they are currently captured by the patterns. While adding more variants to the patterns can increase extraction coverage, it also risks false positives if the pattern becomes too permissive. The discovery tool helps balance this tradeoff by showing what headers exist in the notes and how they are currently classified.
-
-See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
-
 ## MIMIC Format Support
 
 ### MIMIC-III
 
 - Input: `NOTEEVENTS.csv.gz` (PhysioNet MIMIC-III v1.4). Expected columns: HADM_ID, SUBJECT_ID, ROW_ID, TEXT, CATEGORY, CHARTDATE, ISERROR.
 - Filters to CATEGORY = 'Discharge summary'.
-- Handles multiple notes per admission (addendums) — keeps one with longest BHC.
+- Handles multiple notes per admission (addendums). Keeps the one with the longest BHC.
 
 ### MIMIC-IV
 

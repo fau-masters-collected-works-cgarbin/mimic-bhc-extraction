@@ -18,7 +18,7 @@ Four case-insensitive regex patterns match the BHC header, tried in order from m
 
 1. `brief hospital/hospitalization course` with optional prefixes ("summary of", "concise summary of", "brief summary of")
 2. `hospital/hospitalization course` with the same optional prefixes plus "history of"
-3. `nicu course` (neonatal ICU discharge summaries) with the same optional prefixes
+3. `nicu course` (neonatal ICU discharge summaries) with the optional summary prefix (but not "history of")
 4. `hosp course` (with optional period)
 
 The ordering matters. The extractor uses priority-based matching: it tries each pattern independently and uses the first match from the highest-priority pattern. This prevents less specific patterns from shadowing more specific headers that appear later in the text. For example, a note might contain "His hospital course has been complicated by..." as a sentence fragment early on, with the real section header "Brief Hospital Course:" further down. Priority matching tries the most specific pattern first, finds the real header, and never falls through to the bare "hospital course" pattern.
@@ -93,8 +93,4 @@ Each candidate was evaluated on the full corpus for extraction yield and false-p
 
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
-This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. The `discover` CLI command is the primary tool for step 3.
-
-## Design references
-
-For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
+This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. The `discover` CLI command is the primary tool for step 3. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).

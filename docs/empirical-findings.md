@@ -6,7 +6,7 @@ Extraction results, tool comparisons, and known limitations from running the ext
 
 ### Dataset summary
 
-MIMIC-III NOTEEVENTS includes an ISERROR column that flags notes entered in error (filed to the wrong patient, retracted, etc.). These are excluded before extraction. Prior work on MIMIC-III does not consistently document whether ISERROR rows were excluded, which introduces a small source of incomparability in published row counts.
+MIMIC-III NOTEEVENTS includes an ISERROR column that flags notes entered in error (filed to the wrong patient, retracted, etc.). The extraction tool does not exclude these rows; it flags them with an `iserror` quality flag so consumers can decide whether to keep them. For the analysis below, ISERROR rows were excluded to produce clean statistics. Prior work on MIMIC-III does not consistently document whether ISERROR rows were excluded, which introduces a small source of incomparability in published row counts.
 
 MIMIC-III also stores addendums as separate rows with the same hospital admission ID (HADM_ID) as the original discharge summary. An addendum is a supplemental note appended after the original, typically containing corrections or late results. Of the 59,652 discharge summary rows, 6,926 are duplicates by HADM_ID. We deduplicate by keeping the longest note per admission, following Adams et al. (2021), on the rationale that the longest version is the most complete.
 
@@ -25,7 +25,7 @@ MIMIC-III also stores addendums as separate rows with the same hospital admissio
 | Success rate | 97.0% |
 | Failure reason (all failures) | `no_header` |
 
-All failures are `no_header` — no `empty_section` failures were observed. The 1,595 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters.
+All failures are `no_header`. No `empty_section` failures were observed. The 1,595 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters.
 
 ### Comparison with published numbers
 
@@ -58,7 +58,7 @@ The top header variants, from 51,131 successful extractions:
 |----------|------:|--:|
 | Medications on Admission | 37,094 | 72.6% |
 | Discharge Diagnosis/Diagnoses | 6,103 | 11.9% |
-| (no boundary — extracted to end of note) | 3,772 | 7.4% |
+| (no boundary, extracted to end of note) | 3,772 | 7.4% |
 | Discharge Medications | 2,799 | 5.5% |
 | Medications on Discharge | 915 | 1.8% |
 | Discharge Instructions | 203 | 0.4% |
@@ -136,7 +136,7 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 | (no boundary) | 437 | 0.1% |
 | Other | 212 | 0.1% |
 
-"Medications on Admission" is the dominant boundary in both datasets. Only 437 unbounded extractions (0.1%), compared to 3,673 (7.2%) in MIMIC-III.
+"Medications on Admission" is the dominant boundary in both datasets. Only 437 unbounded extractions (0.1%), compared to 3,772 (7.4%) in MIMIC-III.
 
 ### BHC length distribution
 
@@ -150,7 +150,7 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 | Max | 37,171 |
 | Short (<100 chars) | 220 |
 
-Mean BHC length is 2,427 characters, compared to 3,029 in MIMIC-III. The different extraction success rates (88.4% vs. 96.7%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens, assuming ~4 characters per token, our mean would be ~607 tokens — in the same range but not directly comparable without using the same tokenizer.
+Mean BHC length is 2,427 characters, compared to 3,015 in MIMIC-III. The different extraction success rates (88.4% vs. 97.0%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens, assuming ~4 characters per token, our mean would be ~607 tokens, in the same range but not directly comparable without using the same tokenizer.
 
 ### Verification
 
@@ -166,7 +166,7 @@ A detailed review of the Stanford code and the associated paper (Aali et al., JA
 
 **Header handling.** Their post-extraction cleanup strips four hardcoded header variants via `.replace()` calls: "Brief Hospital Course:\n", "BRIEF HOSPITAL COURSE:\n", "BRIEF HOSPITAL COURSE", "Brief Hospital Course". Our extractor uses four case-insensitive regex patterns that match these plus additional variants: "hospital course", "hospitalization course", "nicu course", "hosp course", each with optional prefixes like "summary of", "concise summary of", "history of". We preserve the matched header as metadata rather than stripping it.
 
-**End boundaries.** Their code lists 19 section headers as categories, which would serve as end boundaries during extraction. This list includes headers for sections that typically appear before the BHC (Chief Complaint, History of Present Illness, Physical Exam, etc.) — useful for a general section parser but unnecessary for BHC-specific extraction. Our allowlist has 15 patterns focused specifically on sections that follow the BHC.
+**End boundaries.** Their code lists 19 section headers as categories, which would serve as end boundaries during extraction. This list includes headers for sections that typically appear before the BHC (Chief Complaint, History of Present Illness, Physical Exam, etc.), useful for a general section parser but unnecessary for BHC-specific extraction. Our allowlist has 15 patterns focused specifically on sections that follow the BHC.
 
 **Note filtering.** They apply a structural format check (`text[88:91] == 'Sex'`) to keep only notes following the standard EHR template. MIMIC-IV-Note discharge summaries with the standard template start with a fixed-format preamble (~88 characters), followed by "Sex:" as the first structured field. Notes passing this check are likely to have all subsequent section headers in the standard format. This is a brittle heuristic (it assumes a fixed preamble length) but would pre-filter to notes following the standard template. We do not apply this filter, which means we attempt extraction on all discharge summaries including poorly structured ones. This may explain differences in extraction rates.
 
@@ -253,7 +253,7 @@ In MIMIC-III (hadm_id REDACTED), a similar pattern appears: the BHC contains a t
 
 ### Prevalence
 
-We scanned all successful extractions for markers of embedded content: lines matching "HPI:", "History of Present Illness:", "Past Medical History:", "PMH:", "Medications:", "Current Medications:", signature lines ("Signed by ... on"), and consult/admission note headers. These are heuristic markers, not a precise count — some matches may be legitimate BHC content (a clinician mentioning "Medications:" as a sub-header within a domain-organized course), and some embedded content may not match any of these patterns.
+We scanned all successful extractions for markers of embedded content: lines matching "HPI:", "History of Present Illness:", "Past Medical History:", "PMH:", "Medications:", "Current Medications:", signature lines ("Signed by ... on"), and consult/admission note headers. These are heuristic markers, not a precise count. Some matches may be legitimate BHC content (a clinician mentioning "Medications:" as a sub-header within a domain-organized course), and some embedded content may not match any of these patterns.
 
 | Marker | MIMIC-III (51,131 successful) | MIMIC-IV (293,329 successful) |
 |--------|-------------------------------|-------------------------------|
@@ -264,7 +264,7 @@ We scanned all successful extractions for markers of embedded content: lines mat
 | Embedded signature | 1 (<0.01%) | 45 (0.02%) |
 | Embedded consult | 2 (<0.01%) | 19 (0.01%) |
 
-The most common marker is "Medications:" or "Current Medications:" appearing on its own line within the BHC. This differs from the end-boundary pattern "Medications on Discharge:" — it typically represents a medications list from an embedded admission or transfer note. The overall contamination rate is low (2.2% in MIMIC-III, 0.3% in MIMIC-IV), but the affected extractions can be substantially longer than expected because the embedded content adds thousands of characters.
+The most common marker is "Medications:" or "Current Medications:" appearing on its own line within the BHC. This differs from the end-boundary pattern "Medications on Discharge:". It typically represents a medications list from an embedded admission or transfer note. The overall contamination rate is low (2.2% in MIMIC-III, 0.3% in MIMIC-IV), but the affected extractions can be substantially longer than expected because the embedded content adds thousands of characters.
 
 ### Implications for downstream tasks
 
