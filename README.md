@@ -14,7 +14,7 @@ Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV dischar
 - **Modifier Detection**: Identifies acute/chronic partitions and transitional care sections.
 - **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
 - **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, etc.).
-- **CLI and Python API**: Use the [command-line tool](#command-line) for batch processing or import the library for [single-note extraction](#single-note-extraction) and [programmatic pipeline access](#batch-pipeline).
+- **CLI and Python API**: Use the [command-line tool](#command-line) for batch processing or import the library for [single-note extraction](#single-note-extraction) and [programmatic batch access](#batch-extraction).
 
 Compared to previous extraction tools, this package provides broader header pattern coverage, structure classification that connects organizational format to generation tasks, and structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
 
@@ -60,11 +60,11 @@ mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jso
 
 ### Python API
 
-The package provides two levels of API: single-note functions for working with individual discharge notes, and a batch pipeline for processing MIMIC files end-to-end.
+The package provides two levels of API: single-note functions for working with individual discharge notes, and batch extraction for processing MIMIC files end-to-end.
 
 #### Single-note extraction
 
-`extract_bhc()` extracts the BHC from a single discharge note string and returns a `BHCResult`. It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/pipeline).
+`extract_bhc()` extracts the BHC from a single discharge note string and returns a `BHCResult`. It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/batch module).
 
 ```python
 from mimic_bhc import extract_bhc, classify_bhc_structure
@@ -89,12 +89,12 @@ d = result.to_dict()              # dict ready for json.dump()
 loaded = BHCResult.from_dict(d)   # reconstruct from JSON
 ```
 
-#### Batch pipeline
+#### Batch extraction
 
 `extract_from_file()` processes an entire MIMIC notes file: loads the file, filters to discharge summaries (MIMIC-III), runs extraction and structure classification on each note, and handles addendum deduplication. It returns a list of `BHCResult`, one per admission.
 
 ```python
-from mimic_bhc.pipeline import extract_from_file
+from mimic_bhc.batch import extract_from_file
 
 # Extract all BHCs from a MIMIC-III file
 results = extract_from_file("NOTEEVENTS.csv.gz")
@@ -190,7 +190,7 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 
 - **No filtering**: All records appear in output with metadata (including failed extractions). Consumers decide what to filter.
 - **Single data structure**: `BHCResult` is the canonical representation throughout. It is populated in layers: extraction (`extract_bhc` fills text, headers, offsets), enrichment (callers add metadata and structure classification via `dataclasses.replace()`), and serialization (`to_dict()` at the output boundary). See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for the full design.
-- **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch pipeline adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
+- **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch module adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
 
 For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md).
 

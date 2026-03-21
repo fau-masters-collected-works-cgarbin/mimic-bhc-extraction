@@ -2,14 +2,14 @@
 
 Diagnostic utilities for exploring what section headers appear in discharge
 notes and how they relate to the BHC extraction patterns.  These are not
-part of the extraction pipeline itself -- they exist to support pattern
+part of the extraction logic itself -- they exist to support pattern
 development and validation.
 
 Two entry points:
 
 - ``discover_headers_from_file``: loads a MIMIC CSV/parquet file, samples
   notes, and returns a frequency table.  This is the file-level function
-  that mirrors ``extract_from_file`` in the pipeline module.
+  that mirrors ``extract_from_file`` in the batch module.
 - ``discover_headers_in_texts``: scans an iterable of note strings.
   Use this when you already have note texts in memory.
 """
@@ -81,7 +81,7 @@ def discover_headers_in_texts(
 
 
 # ---------------------------------------------------------------------------
-# File-level discovery (mirrors pipeline.extract_from_file)
+# File-level discovery (mirrors batch.extract_from_file)
 # ---------------------------------------------------------------------------
 
 

@@ -7,8 +7,8 @@ import json
 import sys
 from typing import TYPE_CHECKING
 
+from mimic_bhc.batch import extract_from_file
 from mimic_bhc.discovery import discover_headers_from_file
-from mimic_bhc.pipeline import extract_from_file
 
 if TYPE_CHECKING:
     from mimic_bhc.model import BHCResult

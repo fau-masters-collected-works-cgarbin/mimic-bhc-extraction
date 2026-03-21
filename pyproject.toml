@@ -65,7 +65,7 @@ ignore = [
 "src/mimic_bhc/model.py" = [
     "PLC0415", # lazy import of StructureResult in from_dict to avoid circular import
 ]
-"src/mimic_bhc/pipeline.py" = [
+"src/mimic_bhc/batch.py" = [
     "FBT001",  # is_mimic3 bool parameter needed for version branching
     "PLC0415", # runtime pandas import in functions that need it (kept out of top-level)
     "PLR0913", # _process_note receives pre-computed fields from caller

@@ -1,11 +1,11 @@
-"""Tests for the batch extraction pipeline."""
+"""Tests for the batch extraction module."""
 
 import gzip
 import json
 
 import pytest
 
-from mimic_bhc.pipeline import extract_from_file
+from mimic_bhc.batch import extract_from_file
 
 
 @pytest.fixture
@@ -112,9 +112,9 @@ class TestMimic4Format:
         assert len(results) == 2
 
 
-class TestPipelineEnrichment:
+class TestBatchEnrichment:
     def test_result_fields_populated(self, mimic3_noteevents_gz):
-        """Pipeline should populate all enrichment fields on BHCResult."""
+        """Batch extraction should populate all enrichment fields on BHCResult."""
         results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
         assert len(results) > 0

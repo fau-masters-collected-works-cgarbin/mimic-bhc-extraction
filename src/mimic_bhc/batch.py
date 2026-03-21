@@ -1,6 +1,6 @@
-"""DuckDB-based batch pipeline for BHC extraction and structure classification.
+"""DuckDB-based batch extraction and structure classification.
 
-This module handles input/output and orchestrates extraction across note collections.
+This module handles file loading and orchestrates extraction across note collections.
 DuckDB is used internally for efficient data loading but is not exposed in the public API.
 """
 

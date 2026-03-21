@@ -10,7 +10,7 @@ How the BHC extractor works: the algorithm, its assumptions, and the decisions b
 
 1. **Extraction layer** (`extract_bhc()` in `mimic_bhc/extract.py`). Takes a note string, nothing else. Regex matching, boundary detection, text slicing. Fills in: `success`, `bhc_text`, `start_header`, `end_header`, `bhc_start`, `bhc_end`, `failure_reason`, `bhc_format`. Patterns live in `mimic_bhc/patterns.py`.
 
-2. **Enrichment layer** (callers like `_process_note()` in `mimic_bhc/pipeline.py`). Adds all context that the extraction layer does not have access to: identifiers (`hadm_id`, `note_row_id`, `subject_id`), note metadata (`chartdate`, `note_length`), and derived fields (`quality_flags`, `bhc_structure` via `classify_bhc_structure()`).
+2. **Enrichment layer** (callers like `_process_note()` in `mimic_bhc/batch.py`). Adds all context that the extraction layer does not have access to: identifiers (`hadm_id`, `note_row_id`, `subject_id`), note metadata (`chartdate`, `note_length`), and derived fields (`quality_flags`, `bhc_structure` via `classify_bhc_structure()`).
 
 3. **Serialization layer** (`BHCResult.to_dict()` in `mimic_bhc/model.py`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually. `BHCResult.from_dict()` reverses the mapping for loading JSON back into objects.
 
@@ -57,9 +57,9 @@ The boundary list intentionally excludes BHC-internal sub-headers like "Cardiova
 
 MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`hadm_id`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`; the rest are addendum duplicates.
 
-The batch pipeline (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text. The rationale, following Adams et al. (2021), is that the longest version is the most complete. MIMIC-IV-Note does not have this issue (one row per admission).
+The batch module (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text. The rationale, following Adams et al. (2021), is that the longest version is the most complete. MIMIC-IV-Note does not have this issue (one row per admission).
 
-`extract_bhc()` operates on a single note and does not deduplicate. Deduplication is a property of the batch pipeline, not the per-note extraction.
+`extract_bhc()` operates on a single note and does not deduplicate. Deduplication is a property of the batch module, not the per-note extraction.
 
 ## Quality flags
 
@@ -73,7 +73,7 @@ These flags are informational. The extractor does not filter based on them; cons
 
 ## Structure classification
 
-After extraction, the pipeline classifies each BHC's organizational structure into three categories:
+After extraction, the batch module classifies each BHC's organizational structure into three categories:
 
 - **Narrative**: Continuous prose following the patient's clinical trajectory, with no labeled sub-sections.
 - **Domain-organized**: Divided into labeled sub-sections by clinical domain (organ system, disease, or management area). This is the majority format in both MIMIC-III (53%) and MIMIC-IV (64%).
@@ -85,7 +85,7 @@ Classification is implemented in `mimic_bhc/structure.py` and runs independently
 
 ## Format auto-detection
 
-The batch pipeline auto-detects whether the input file is MIMIC-III or MIMIC-IV by checking the CSV header row for the presence of a `CATEGORY` column (present in MIMIC-III's NOTEEVENTS, absent in MIMIC-IV-Note's discharge table). Column names are normalized to lowercase internally. This can be overridden with the `--format` CLI flag.
+The batch module auto-detects whether the input file is MIMIC-III or MIMIC-IV by checking the CSV header row for the presence of a `CATEGORY` column (present in MIMIC-III's NOTEEVENTS, absent in MIMIC-IV-Note's discharge table). Column names are normalized to lowercase internally. This can be overridden with the `--format` CLI flag.
 
 ## Pattern development process
 
