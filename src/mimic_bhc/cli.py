@@ -207,9 +207,6 @@ def _add_stats_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-_SUBCOMMANDS = {"extract", "discover", "stats"}
-
-
 def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -240,14 +237,7 @@ def main() -> int:
     )
     _add_stats_args(stats_parser)
 
-    # Backward compatibility: if first arg is a flag like --input (not a
-    # known subcommand and not --help/-h), prepend "extract" so the old
-    # single-command CLI still works.
-    argv = sys.argv[1:]
-    if argv and argv[0] not in _SUBCOMMANDS and argv[0] not in ("-h", "--help"):
-        argv = ["extract", *argv]
-
-    args = parser.parse_args(argv)
+    args = parser.parse_args()
 
     if args.command == "extract":
         return _run_extract(args)
