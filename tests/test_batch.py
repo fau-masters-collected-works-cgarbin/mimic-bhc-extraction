@@ -5,7 +5,8 @@ import json
 
 import pytest
 
-from mimic_bhc.batch import extract_from_file
+from mimic_bhc.batch import _build_quality_flags, extract_from_file
+from mimic_bhc.model import BHCResult
 
 
 @pytest.fixture
@@ -133,13 +134,6 @@ class TestBatchEnrichment:
                     "standardized_template",
                 )
 
-    def test_quality_flags_are_tuples(self, mimic3_noteevents_gz):
-        """Quality flags should be tuples of strings."""
-        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
-
-        for r in results:
-            assert isinstance(r.quality_flags, tuple)
-
     def test_pretty_print_produces_valid_json_array(self, mimic3_noteevents_gz, tmp_path):
         """CLI write with pretty=True should produce a valid JSON array."""
         from mimic_bhc.cli import _write_results
@@ -201,6 +195,26 @@ class TestSamplingOption:
 
         assert len(results) == 3
 
+    def test_sample_larger_than_dataset(self, tmp_path):
+        """--sample N where N exceeds total admissions should return all admissions."""
+        lines = [
+            "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
+            "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT"
+        ]
+        for i in range(3):
+            lines.append(
+                f'{i + 1},10,{100 + i},2150-01-01,,,"Discharge summary","Report",,,'
+                f'"Brief Hospital Course:\nPatient {i}.\n\nMedications on Discharge:\nMed {i}"'
+            )
+
+        path = tmp_path / "NOTEEVENTS.csv.gz"
+        with gzip.open(path, "wt") as f:
+            f.write("\n".join(lines) + "\n")
+
+        results = extract_from_file(str(path), format_hint="mimic3", sample_size=100)
+
+        assert len(results) == 3
+
     def test_sample_counts_admissions_not_rows(self, tmp_path):
         """--sample N should sample N admissions, not N rows.
 
@@ -231,3 +245,34 @@ class TestSamplingOption:
         results = extract_from_file(str(path), format_hint="mimic3", sample_size=3)
 
         assert len(results) == 3
+
+
+class TestQualityFlags:
+    def _make_result(self, *, bhc_text="x" * 200, end_header="Medications on Discharge"):
+        return BHCResult(
+            success=True,
+            bhc_text=bhc_text,
+            start_header="Brief Hospital Course:",
+            end_header=end_header,
+            failure_reason=None,
+        )
+
+    def test_below_min_length(self):
+        result = self._make_result(bhc_text="short")
+        flags = _build_quality_flags(result)
+        assert "below_min_length" in flags
+
+    def test_unbounded(self):
+        result = self._make_result(end_header=None)
+        flags = _build_quality_flags(result)
+        assert "unbounded" in flags
+
+    def test_iserror(self):
+        result = self._make_result()
+        flags = _build_quality_flags(result, iserror=1)
+        assert "iserror" in flags
+
+    def test_no_flags_on_normal_result(self):
+        result = self._make_result()
+        flags = _build_quality_flags(result)
+        assert flags == ()

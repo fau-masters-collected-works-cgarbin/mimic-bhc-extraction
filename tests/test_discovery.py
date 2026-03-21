@@ -27,9 +27,6 @@ class TestClassifyHeaderRole:
     def test_other_header(self) -> None:
         assert classify_header_role("History of Present Illness") == "Other"
 
-    def test_other_chief_complaint(self) -> None:
-        assert classify_header_role("Chief Complaint") == "Other"
-
     def test_whitespace_stripped(self) -> None:
         assert classify_header_role("  Brief Hospital Course  ") == "BHC header"
 

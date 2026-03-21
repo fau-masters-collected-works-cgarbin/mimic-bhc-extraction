@@ -128,22 +128,8 @@ class TestBHCResultSerialization:
             quality_flags=("unbounded",),
             bhc_structure=structure,
         )
-        d = enriched.to_dict()
-        reconstructed = BHCResult.from_dict(d)
-        assert reconstructed.hadm_id == enriched.hadm_id
-        assert reconstructed.success == enriched.success
-        assert reconstructed.bhc_text == enriched.bhc_text
-        assert reconstructed.start_header == enriched.start_header
-        assert reconstructed.end_header == enriched.end_header
-        assert reconstructed.failure_reason == enriched.failure_reason
-        assert reconstructed.note_row_id == enriched.note_row_id
-        assert reconstructed.subject_id == enriched.subject_id
-        assert reconstructed.chartdate == enriched.chartdate
-        assert reconstructed.note_length == enriched.note_length
-        assert reconstructed.quality_flags == enriched.quality_flags
-        assert reconstructed.bhc_structure == enriched.bhc_structure
-        assert reconstructed.bhc_start == enriched.bhc_start
-        assert reconstructed.bhc_end == enriched.bhc_end
+        reconstructed = BHCResult.from_dict(enriched.to_dict())
+        assert reconstructed == enriched
 
     def test_from_dict_failed_extraction(self):
         result = extract_bhc(NO_HEADER_NOTE)

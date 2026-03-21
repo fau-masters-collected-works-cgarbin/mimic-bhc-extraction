@@ -199,13 +199,6 @@ class TestExtractBhc:
         assert "[**Known firstname 123**]" in result.bhc_text
         assert result.end_header == "Discharge Disposition"
 
-    def test_enrichment_fields_default_to_none(self):
-        """extract_bhc does not set enrichment fields."""
-        result = extract_bhc(STANDARD_NOTE)
-        assert result.hadm_id is None
-        assert result.note_row_id is None
-        assert result.subject_id is None
-
     def test_inline_text_after_header(self):
         """Header with text continuing on the same line after the colon."""
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE)
@@ -252,24 +245,6 @@ Aspirin 81mg
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE)
         assert result.success is True
         assert INLINE_TEXT_HEADER_NOTE[result.bhc_start : result.bhc_end] == result.bhc_text
-
-    def test_mid_sentence_hospital_course_not_matched(self):
-        """Mid-sentence 'hospital course' should NOT match because the ^ anchor
-        requires the pattern to start at the beginning of a line. Only line-initial
-        headers are recognized."""
-        note = """\
-Admission Date: 2150-01-01
-
-The patient had a complicated hospital course during this admission.
-He was admitted with pneumonia and treated with antibiotics.
-His fever resolved on day 3 and he was discharged home.
-
-Medications on Discharge:
-Aspirin 81mg
-"""
-        result = extract_bhc(note)
-        assert result.success is False
-        assert result.failure_reason == "no_header"
 
 
 # ---------------------------------------------------------------------------

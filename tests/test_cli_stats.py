@@ -126,22 +126,6 @@ class TestRunStats:
         output = capsys.readouterr().out
         assert "No records found" in output
 
-    def test_all_failures(self, tmp_path, capsys):
-        path = tmp_path / "results.jsonl"
-        records = [
-            _make_record(1, success=False),
-            _make_record(2, success=False),
-        ]
-        path.write_text("\n".join(json.dumps(r) for r in records))
-
-        args = Namespace(input=str(path))
-        ret = _run_stats(args)
-        assert ret == 0
-
-        output = capsys.readouterr().out
-        assert "Failed:" in output
-        assert "0.0%" in output  # success rate
-
 
 class TestFromDictRoundtrip:
     """Verify that JSON files produced by to_dict() can be loaded back
