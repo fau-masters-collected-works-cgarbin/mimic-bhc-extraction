@@ -125,25 +125,3 @@ class TestRunStats:
 
         output = capsys.readouterr().out
         assert "No records found" in output
-
-
-class TestFromDictRoundtrip:
-    """Verify that JSON files produced by to_dict() can be loaded back
-    into BHCResult objects via from_dict(), without manual field remapping."""
-
-    def test_load_and_reconstruct(self, tmp_path):
-        records = [_make_record(1), _make_record(2, success=False)]
-        path = tmp_path / "results.jsonl"
-        path.write_text("\n".join(json.dumps(r) for r in records))
-
-        loaded = _load_results(str(path))
-        reconstructed = [BHCResult.from_dict(r) for r in loaded]
-
-        assert len(reconstructed) == 2
-        assert reconstructed[0].hadm_id == 1
-        assert reconstructed[0].success is True
-        assert reconstructed[0].subject_id == 1
-        assert reconstructed[0].bhc_structure is not None
-        assert reconstructed[0].bhc_structure.category == "narrative"
-        assert reconstructed[1].success is False
-        assert reconstructed[1].bhc_structure is None

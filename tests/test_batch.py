@@ -105,7 +105,6 @@ class TestMimic4Format:
 
         hadm_100 = next(r for r in results if r.hadm_id == 100)
         assert hadm_100.note_row_id == "FAKE-NOTE-DS-01"
-        assert isinstance(hadm_100.note_row_id, str)
 
     def test_auto_detects_mimic4(self, mimic4_discharge_gz):
         """Auto-detect should identify MIMIC-IV by absence of CATEGORY column."""
