@@ -26,7 +26,18 @@ def load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.DataF
 
 
 def detect_mimic_format(csv_path: str) -> str:
-    """Auto-detect MIMIC version by checking for CATEGORY column in first row."""
+    """Auto-detect MIMIC version by checking for CATEGORY column in first row.
+
+    Only works with CSV files (plain or gzipped). Parquet files do not have a
+    text header row, so auto-detection is not supported; pass --format explicitly.
+    """
+    if csv_path.endswith(".parquet"):
+        msg = (
+            f"Cannot auto-detect MIMIC format from a Parquet file: {csv_path}. "
+            "Use --format mimic3 or --format mimic4 to specify the format explicitly."
+        )
+        raise ValueError(msg)
+
     if csv_path.endswith(".gz"):
         with gzip.open(csv_path, "rt") as f:
             header = f.readline().strip()

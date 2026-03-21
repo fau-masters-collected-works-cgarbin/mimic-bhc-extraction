@@ -114,6 +114,16 @@ class TestMimic4Format:
         assert len(results) == 2
 
 
+class TestParquetAutoDetect:
+    def test_parquet_auto_detect_raises(self, tmp_path):
+        """Auto-detect should raise ValueError for Parquet files."""
+        parquet_file = tmp_path / "notes.parquet"
+        parquet_file.touch()
+
+        with pytest.raises(ValueError, match="Cannot auto-detect MIMIC format from a Parquet file"):
+            extract_from_file(str(parquet_file), format_hint="auto")
+
+
 class TestBatchEnrichment:
     def test_result_fields_populated(self, mimic3_noteevents_gz):
         """Batch extraction should populate all enrichment fields on BHCResult."""
