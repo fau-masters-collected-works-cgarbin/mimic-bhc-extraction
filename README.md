@@ -132,7 +132,7 @@ Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-pre-commit install
+uv run pre-commit install
 ```
 
 This installs all dependencies (including dev/test) and enables pre-commit hooks that run ruff on every commit (lint + format).
