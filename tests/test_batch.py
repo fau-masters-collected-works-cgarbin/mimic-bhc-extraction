@@ -79,8 +79,8 @@ class TestMimic3Format:
         results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
         hadm_200_results = [r for r in results if r.hadm_id == 200]
-        if hadm_200_results:
-            assert "iserror" in hadm_200_results[0].quality_flags
+        assert len(hadm_200_results) == 1
+        assert "iserror" in hadm_200_results[0].quality_flags
 
     def test_auto_detects_mimic3(self, mimic3_noteevents_gz):
         """Auto-detect should identify MIMIC-III by CATEGORY column."""
