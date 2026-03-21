@@ -134,7 +134,7 @@ Each record contains:
 - `quality_flags`: List of quality flags (e.g., "below_min_length", "unbounded", "iserror").
 - `bhc_structure`: Structure classification object:
   - `category`: "narrative", "domain_organized", or "standardized_template".
-  - `numbering_convention`: Convention used for labeling (e.g., "N.", "#", "standalone").
+  - `numbering_convention`: Convention used for labeling (e.g., "N.", "#", "standalone", "mixed").
   - `modifiers`: List of structural modifiers.
   - `nicu_domain_count`: Number of NICU domains (for templates).
   - `labeled_section_count`: Number of labeled sections (for domain-organized).

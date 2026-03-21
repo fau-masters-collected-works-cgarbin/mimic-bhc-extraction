@@ -216,6 +216,21 @@ Patient admitted with multiple issues.
         assert result.category == CATEGORY_DOMAIN_ORGANIZED
         assert result.numbering_convention == "N)"
 
+    def test_mixed_conventions(self):
+        """When no single convention dominates, numbering_convention is 'mixed'."""
+        text = """\
+Patient admitted with multiple issues.
+
+# CHF exacerbation: Diuresed with IV Lasix.
+
+1. UTI: Treated with ciprofloxacin.
+
+* Anemia: Transfused 1 unit PRBCs.
+"""
+        result = classify_bhc_structure(text)
+        assert result.category == CATEGORY_DOMAIN_ORGANIZED
+        assert result.numbering_convention == "mixed"
+
     def test_discharge_headers_not_counted(self):
         """Discharge-summary section headers inside the BHC should not
         cause a narrative to be misclassified as domain-organized.

@@ -196,8 +196,13 @@ def _count_labeled_sections(bhc_text: str) -> int:
     return len(matched_lines)
 
 
-def _detect_numbering_convention(bhc_text: str) -> str | None:
-    """Identify the dominant numbering convention used in a Category B BHC."""
+def _detect_numbering_convention(bhc_text: str) -> str:
+    """Identify the numbering convention used in a Category B BHC.
+
+    Returns the dominant convention if one reaches the threshold, or
+    "mixed" when sections use a combination of markers with no single
+    convention dominating.
+    """
     double_hash_count = len(_DOUBLE_HASH_RE.findall(bhc_text))
     counts: dict[str, int] = {
         "##": double_hash_count,
@@ -222,7 +227,7 @@ def _detect_numbering_convention(bhc_text: str) -> str | None:
         return best
     if standalone_count >= _MIN_DOMAIN_SECTIONS:
         return "standalone"
-    return None
+    return "mixed"
 
 
 # ---------------------------------------------------------------------------
