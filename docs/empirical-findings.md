@@ -6,7 +6,7 @@ Extraction results, tool comparisons, and known limitations from running the ext
 
 ### Dataset summary
 
-MIMIC-III NOTEEVENTS includes an ISERROR column that flags notes entered in error (filed to the wrong patient, retracted, etc.). The extraction tool does not exclude these rows; it flags them with an `iserror` quality flag so consumers can decide whether to keep them. For the analysis below, ISERROR rows were excluded to produce clean statistics. Prior work on MIMIC-III does not consistently document whether ISERROR rows were excluded, which introduces a small source of incomparability in published row counts.
+MIMIC-III NOTEEVENTS includes an ISERROR column that flags notes entered in error (filed to the wrong patient, retracted, etc.). The extraction tool does not exclude these rows. It flags them with an `iserror` quality flag so consumers can decide whether to keep them. For the analysis below, ISERROR rows were excluded to produce clean statistics. Prior work on MIMIC-III does not consistently document whether ISERROR rows were excluded, which introduces a small source of incomparability in published row counts.
 
 MIMIC-III also stores addendums as separate rows with the same hospital admission ID (HADM_ID) as the original discharge summary. An addendum is a supplemental note appended after the original, typically containing corrections or late results. Of the 59,652 discharge summary rows, 6,926 are duplicates by HADM_ID. We deduplicate by keeping the longest note per admission, following Adams et al. (2021), on the rationale that the longest version is the most complete.
 
@@ -83,7 +83,7 @@ The top header variants, from 51,131 successful extractions:
 
 18 extractions are shorter than the 100-character threshold. Lengths are reported in characters, not tokens, to avoid baking in a specific tokenizer choice at the extraction stage.
 
-These aggregate statistics mix narrative and domain-organized BHCs, which differ in length by roughly 2x. A separate structural analysis found median lengths of 1,669 chars (narrative) vs 3,241 chars (domain-organized) in MIMIC-III.
+These aggregate statistics mix narrative and domain-organized BHCs, which differ in length by roughly 2x. A separate structural analysis showed median lengths of 1,669 chars (narrative) vs 3,241 chars (domain-organized) in MIMIC-III.
 
 ### Verification
 
@@ -150,7 +150,7 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 | Max | 37,171 |
 | Short (<100 chars) | 220 |
 
-Mean BHC length is 2,427 characters, compared to 3,015 in MIMIC-III. The different extraction success rates (88.4% vs. 97.0%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens, assuming ~4 characters per token, our mean would be ~607 tokens, in the same range but not directly comparable without using the same tokenizer.
+Mean BHC length is 2,427 characters, compared to 3,015 in MIMIC-III. The different extraction success rates (88.4% vs. 97.0%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens: assuming ~4 characters per token, our mean would be ~607 tokens. This is in the same range but not directly comparable without using the same tokenizer.
 
 ### Verification
 
@@ -237,7 +237,7 @@ Half are PHI de-identification artifacts. MIMIC-III's de-identification inserts 
 
 Half are unrecognized prefix variants not in our pattern list. Examples: "REVIEW OF HOSPITAL COURSE:", "ADDENDUM - HOSPITAL COURSE:", "MEDICAL INTENSIVE CARE UNIT HOSPITAL COURSE:", "CONTINUING HIS HOSPITAL COURSE:", "REMAINING HOSPITAL COURSE:". These are legitimate but rare headers (each appears 1-4 times in the full corpus).
 
-All are genuine BHC sections with real clinical narrative (not false positives). This represents a 0.08% gap (42/52,726) that could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap because the affected cases are too few to justify the added pattern complexity and false-positive risk.
+All are genuine BHC sections with real clinical narrative (not false positives). This represents a 0.08% gap (42/52,726) that could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap. The affected cases are too few to justify the added pattern complexity and false-positive risk.
 
 ## Known Limitations
 
@@ -268,7 +268,7 @@ The most common marker is "Medications:" or "Current Medications:" appearing on 
 
 ### Implications for downstream tasks
 
-For BHC generation, embedded sub-documents create noise in the reference text. A model trained to generate BHCs from source notes would see these embedded admission notes and consult entries as part of the target output, potentially learning to reproduce content that a clinician would not include in a well-written hospital course. The effect is likely small given the low prevalence, but it is worth noting when interpreting length statistics or when individual extractions appear unusually long.
+For BHC generation, embedded sub-documents create noise in the reference text. A model trained to generate BHCs from source notes would see these embedded admission notes and consult entries as part of the target output, potentially learning to reproduce content that a clinician would not include in a well-written hospital course. The effect is likely small given the low prevalence, but it matters when interpreting length statistics or when individual extractions appear unusually long.
 
 The contamination rate is lower in MIMIC-IV than MIMIC-III, consistent with MIMIC-IV representing more recent clinical practice where EHR systems may structure notes differently.
 
@@ -278,7 +278,7 @@ Detecting embedded sub-documents reliably would require either a much larger set
 
 ## Case review findings
 
-52 cases were sampled across both MIMIC-III and MIMIC-IV to verify extraction correctness and the extraction-level format classification. The sample was stratified by the binary classifier's labels (16 MIMIC-III "problem-oriented," 15 MIMIC-III "chronological," 10 MIMIC-IV "problem-oriented," 10 MIMIC-IV "chronological," plus 1 hybrid format deep dive). Most were analyzed programmatically. A small subset was manually reviewed. All extraction boundaries were verified as correct.
+We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and the extraction-level format classification. The sample was stratified by the binary classifier's labels: 16 MIMIC-III "problem-oriented," 15 MIMIC-III "chronological," 10 MIMIC-IV "problem-oriented," 10 MIMIC-IV "chronological," plus 1 hybrid format deep dive. Most were analyzed programmatically, with a small subset manually reviewed. All extraction boundaries were verified as correct.
 
 Key findings:
 

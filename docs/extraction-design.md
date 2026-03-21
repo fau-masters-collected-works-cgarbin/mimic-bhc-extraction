@@ -28,7 +28,7 @@ The design rule: if you need a new field on the extraction output, add it to `BH
 
 **Phase 2: End-boundary search.** Starting from the text after the header, the extractor searches for the first line that matches a known end-boundary pattern (a top-level discharge summary section that comes after the BHC). If a boundary is found, the BHC is the text between the header and the boundary. If no boundary is found, the BHC extends to the end of the note (flagged as "unbounded" in the output metadata). If the region between header and boundary is empty, extraction fails with reason `empty_section`.
 
-This approach relies on the semi-structured format of MIMIC discharge summaries rather than attempting ML-based section classification. Notes with non-standard structure fail extraction with a labeled reason, which supports systematic analysis of failure modes.
+This approach relies on the semi-structured format of MIMIC discharge summaries rather than attempting ML-based section classification. Notes with non-standard structure fail extraction with a labeled reason, which lets consumers analyze failure modes systematically.
 
 ## Header patterns
 
@@ -39,7 +39,7 @@ Four case-insensitive regex patterns match the BHC header, tried in order from m
 3. `nicu course` (neonatal ICU discharge summaries) with the optional summary prefix (but not "history of")
 4. `hosp course` (with optional period)
 
-The ordering matters. The extractor uses priority-based matching: it tries each pattern independently and uses the first match from the highest-priority pattern. This prevents less specific patterns from shadowing more specific headers that appear later in the text. For example, a note might contain "His hospital course has been complicated by..." as a sentence fragment early on, with the real section header "Brief Hospital Course:" further down. Priority matching tries the most specific pattern first, finds the real header, and never falls through to the bare "hospital course" pattern.
+The ordering matters. The extractor tries each pattern independently and uses the first match from the highest-priority pattern. For example, a note might contain "His hospital course has been complicated by..." as a sentence fragment early on, with the real section header "Brief Hospital Course:" further down. Priority matching tries the most specific pattern first, finds the real header, and never falls through to the bare "hospital course" pattern.
 
 All patterns are anchored to the start of the line (`^` with `re.MULTILINE`) to prevent mid-sentence false positives, but not to the end of the line, so that headers with inline text ("HOSPITAL COURSE: The patient was admitted...") still match.
 
@@ -105,7 +105,7 @@ Running this on MIMIC-III samples surfaced header variants not in the literature
 
 It also confirmed which discharge-summary sections reliably follow the BHC and which do not.
 
-Each candidate was evaluated on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as standalone headers but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
+We evaluated each candidate on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as standalone headers but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
 
 **Step 4: Comparative validation.** Running the extractor on the full MIMIC-III corpus produced a higher extraction rate than published tools, confirming the broader pattern coverage. A head-to-head comparison with an alternative extractor (Kruse et al.) showed agreement on most cases, with our broader patterns capturing thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical findings](empirical-findings.md) for the full comparison.
 
