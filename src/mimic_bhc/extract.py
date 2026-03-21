@@ -1,9 +1,8 @@
 """BHC (Brief Hospital Course) extraction from MIMIC discharge summaries.
 
-Design rationale documented in docs/bhc_extraction_findings.md (section
-"Extraction Algorithm"). Update both when changing patterns, thresholds,
-or algorithm logic. Concrete claims in the doc (pattern counts, threshold
-values) are verified by tests/test_extract.py.
+Design rationale documented in docs/extraction-design.md. Update both when
+changing patterns, thresholds, or algorithm logic. Concrete claims in the
+doc (pattern counts, threshold values) are verified by tests/test_extract.py.
 """
 
 from __future__ import annotations
@@ -315,7 +314,7 @@ class BHCStats(TypedDict):
     success_rate: float
     failure_reasons: dict[str, int]
     header_distribution: dict[str, int]
-    end_boundary_distribution: dict[str, int]
+    end_header_distribution: dict[str, int]
     unbounded_extractions: int
     bhc_length_stats: dict[str, float | int]
     short_extractions: int
@@ -337,7 +336,7 @@ def compute_bhc_stats(results_df: pd.DataFrame) -> BHCStats:
             "success_rate": 0.0,
             "failure_reasons": {},
             "header_distribution": {},
-            "end_boundary_distribution": {},
+            "end_header_distribution": {},
             "unbounded_extractions": 0,
             "bhc_length_stats": {},
             "short_extractions": 0,
@@ -357,7 +356,7 @@ def compute_bhc_stats(results_df: pd.DataFrame) -> BHCStats:
     success_df = results_df[results_df["success"]]
     header_dist = success_df["start_header"].value_counts().to_dict() if len(success_df) > 0 else {}
 
-    # End boundary distribution
+    # End header distribution
     end_dist = success_df["end_header"].value_counts().to_dict() if len(success_df) > 0 else {}
     unbounded = int(success_df["end_header"].isna().sum()) if len(success_df) > 0 else 0
 
@@ -386,7 +385,7 @@ def compute_bhc_stats(results_df: pd.DataFrame) -> BHCStats:
         "success_rate": float(successes / total),
         "failure_reasons": failure_reasons,
         "header_distribution": header_dist,
-        "end_boundary_distribution": end_dist,
+        "end_header_distribution": end_dist,
         "unbounded_extractions": unbounded,
         "bhc_length_stats": length_stats,
         "short_extractions": short_extractions,

@@ -107,8 +107,8 @@ Each record contains:
 - `bhc_text`: Extracted BHC text (null if extraction failed).
 - `bhc_char_count`: Character count of BHC.
 - `bhc_word_count`: Word count of BHC.
-- `header_pattern`: Matched header text.
-- `end_boundary`: Matched end boundary section.
+- `start_header`: Header that opens the BHC section.
+- `end_header`: Header that ends the BHC section (next section boundary).
 - `extraction_success`: Boolean success flag.
 - `failure_reason`: "no_header" or "empty_section" (if failed).
 - `quality_flags`: List of quality flags (e.g., "below_min_length", "unbounded", "iserror").
@@ -118,7 +118,7 @@ Each record contains:
   - `modifiers`: List of structural modifiers.
   - `nicu_domain_count`: Number of NICU domains (for templates).
   - `labeled_section_count`: Number of labeled sections (for domain-organized).
-- `bhc_start`: Character offset in original note.
+- `bhc_start`: Start character offset in original note.
 - `bhc_end`: End character offset in original note.
 - `note_length`: Original note character count.
 

@@ -69,7 +69,10 @@ def _process_note(
     result = extract_bhc(note_text, hadm_id=hadm_id, note_row_id=row_id)
 
     quality_flags = _build_quality_flags(
-        result.success, result.bhc_text, result.end_header, iserror,
+        result.success,
+        result.bhc_text,
+        result.end_header,
+        iserror,
     )
 
     output = {
@@ -80,8 +83,8 @@ def _process_note(
         "bhc_text": result.bhc_text,
         "bhc_char_count": len(result.bhc_text) if result.bhc_text else 0,
         "bhc_word_count": len(result.bhc_text.split()) if result.bhc_text else 0,
-        "header_pattern": result.start_header,
-        "end_boundary": result.end_header,
+        "start_header": result.start_header,
+        "end_header": result.end_header,
         "extraction_success": result.success,
         "failure_reason": result.failure_reason,
         "quality_flags": quality_flags,
@@ -143,13 +146,13 @@ def _load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.Data
     Uses parameterized queries to avoid SQL injection from file paths.
     """
     if input_path.endswith(".parquet"):
-        df = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
+        notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
     else:
-        df = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
+        notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
 
     # Normalize column names to lowercase for easier lookup
-    df.columns = df.columns.str.lower()
-    return df
+    notes.columns = notes.columns.str.lower()
+    return notes
 
 
 def _select_best_per_admission(
@@ -169,16 +172,10 @@ def _select_best_per_admission(
 
     for _, row in group.iterrows():
         chartdate = (
-            str(row[cols.chartdate])
-            if cols.chartdate and pd.notna(row[cols.chartdate])
-            else None
+            str(row[cols.chartdate]) if cols.chartdate and pd.notna(row[cols.chartdate]) else None
         )
         note_text = str(row[cols.text]) if pd.notna(row[cols.text]) else ""
-        iserror = (
-            int(row[cols.iserror])
-            if cols.iserror and pd.notna(row[cols.iserror])
-            else None
-        )
+        iserror = int(row[cols.iserror]) if cols.iserror and pd.notna(row[cols.iserror]) else None
 
         note_result = _process_note(
             hadm_id=int(row[cols.hadm_id]),
@@ -241,20 +238,17 @@ def extract_from_file(
         is_mimic3 = format_hint == "mimic3"
 
     with duckdb.connect() as conn:
-        df = _load_dataframe(conn, input_path)
+        notes = _load_dataframe(conn, input_path)
 
-    cols = _column_map(is_mimic3=is_mimic3, columns=list(df.columns))
+    cols = _column_map(is_mimic3=is_mimic3, columns=list(notes.columns))
 
     # MIMIC-III: filter to discharge summaries
     if is_mimic3:
-        df = df[df["category"] == "Discharge summary"].copy()
+        notes = notes[notes["category"] == "Discharge summary"].copy()
 
     if sample_size is not None:
-        df = df.sample(n=min(sample_size, len(df)), random_state=42)
+        notes = notes.sample(n=min(sample_size, len(notes)), random_state=42)
 
-    results = [
-        _select_best_per_admission(group, cols)
-        for _, group in df.groupby(cols.hadm_id)
-    ]
+    results = [_select_best_per_admission(group, cols) for _, group in notes.groupby(cols.hadm_id)]
 
     _write_results(results, output_path, pretty=pretty_print)
