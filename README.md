@@ -27,13 +27,7 @@ pip install git+https://github.com/cgarbin/mimic-bhc-extraction.git
 
 ### Command-line
 
-Extract BHCs from a MIMIC notes file:
-
-```bash
-mimic-bhc-extract extract --input NOTEEVENTS.csv.gz --output bhc.jsonl
-```
-
-The pipeline locates the BHC section in each note using [header pattern matching](docs/extraction-design.md#header-patterns), finds where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output Format](#output-format) for the full schema.
+The code finds the BHC section in each note using [header pattern matching](docs/extraction-design.md#header-patterns), finds where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output Format](#output-format) for the full schema.
 
 Options:
 
@@ -41,14 +35,39 @@ Options:
 - `--output`: Path to output file (required).
 - `--format`: Input format: `mimic3`, `mimic4`, or `auto` (default: auto-detect).
 - `--pretty`: Write a single pretty-printed JSON array instead of JSONL.
-- `--sample`: Extract from random sample of N admissions (optional).
+- `--sample`: Extract from random sample of N admissions (optional - all notes are extracted if not specified).
+
+All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The same commands work with MIMIC-IV-Note's `discharge.csv.gz` file. The extractor auto-detects the format.
+
+```bash
+# Set path to MIMIC notes file - replace with your path
+export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
+```
+
+Extract BHCs from a random sample of 100 MIMIC-III notes with pretty-printed JSON output (good for human inspection):
+
+```bash
+mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
+    --pretty --output bhc_sample.json
+```
+
+Extract all BHCs from a MIMIC notes file into JSON Lines format (one JSON object per line, good for programmatic use) -  it will take a few minutes:
+
+```bash
+mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jsonl
+```
 
 ### Discovering section headers
 
-To see what section headers exist in a MIMIC notes file and how they map to the extractor's current patterns:
+BHC extraction relies on regex patterns that match the section header introducing the BHC and the section headers that follow it. These patterns were developed through an iterative process of sampling notes, identifying candidate headers, and classifying them based on whether they match the current patterns. This approach is described in [docs/extraction-design.md](docs/extraction-design.md#pattern-development-process).
+
+The current patterns cover many common variants of BHC headers and end boundaries, but there may be edge cases or rare variants that are not yet covered. If you want to improve or extend the patterns, or understand what headers exist in the notes and how they are classified by the current patterns, you can use the `discover` command.
 
 ```bash
-mimic-bhc-extract discover --input NOTEEVENTS.csv.gz
+# Simplify the command - replace with your path
+export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
+
+mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz
 ```
 
 This samples notes (default 500, use `--sample 0` for all), scans for lines that look like section headers, and prints a frequency table with each header's role: "BHC header" (matched by start patterns), "End boundary" (matched by end-boundary patterns), or "Other" (not currently recognized). See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
@@ -139,14 +158,26 @@ This installs all dependencies (including dev/test) and enables pre-commit hooks
 
 ### Running locally
 
-After setup, use `uv run` to invoke the CLI within the project environment:
+This section has the local equivalent of [usage](#usage) examples.
+
+All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The same commands work with MIMIC-IV-Note's `discharge.csv.gz` file. The extractor auto-detects the format.
+
+After setup, use `uv run` to invoke the CLI within the project environment.
+
+Try a small sample to verify it works:
 
 ```bash
-uv run mimic-bhc-extract extract --input NOTEEVENTS.csv.gz --output bhc.jsonl
-uv run mimic-bhc-extract discover --input NOTEEVENTS.csv.gz
+# Simplify the command - replace with your path
+export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
+uv run mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
+    --pretty --output bhc_sample.json
 ```
 
-This is the local equivalent of the commands shown in the Usage section.
+Once you verify it works, run on the full file (it will take a few minutes):
+
+```bash
+uv run mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jsonl
+```
 
 ### Running tests
 
