@@ -84,6 +84,7 @@ def discover_headers_in_texts(
 # File-level discovery (mirrors pipeline.extract_from_file)
 # ---------------------------------------------------------------------------
 
+
 def _detect_format(csv_path: str) -> str:
     """Auto-detect MIMIC version by checking for CATEGORY column in first row."""
     if csv_path.endswith(".gz"):
@@ -124,30 +125,28 @@ def discover_headers_from_file(
         ``(header_text, frequency, role)`` sorted by frequency descending.
     """
     is_mimic3 = (
-        format_hint == "mimic3"
-        if format_hint != "auto"
-        else _detect_format(input_path) == "mimic3"
+        format_hint == "mimic3" if format_hint != "auto" else _detect_format(input_path) == "mimic3"
     )
 
     conn = duckdb.connect()
 
     # Load and normalize columns
     if input_path.endswith(".parquet"):
-        df = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
+        notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
     else:
-        df = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
+        notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
 
-    df.columns = df.columns.str.lower()
+    notes.columns = notes.columns.str.lower()
     conn.close()
 
     # MIMIC-III: filter to discharge summaries, exclude ISERROR
     if is_mimic3:
-        df = df[df["category"] == "Discharge summary"]
-        if "iserror" in df.columns:
-            df = df[(df["iserror"].isna()) | (df["iserror"] != 1)]
+        notes = notes[notes["category"] == "Discharge summary"]
+        if "iserror" in notes.columns:
+            notes = notes[(notes["iserror"].isna()) | (notes["iserror"] != 1)]
 
     # Sample
-    if sample_size > 0 and len(df) > sample_size:
-        df = df.sample(n=sample_size, random_state=42)
+    if sample_size > 0 and len(notes) > sample_size:
+        notes = notes.sample(n=sample_size, random_state=42)
 
-    return discover_headers_in_texts(df["text"])
+    return discover_headers_in_texts(notes["text"])

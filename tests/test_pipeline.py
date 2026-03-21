@@ -262,7 +262,7 @@ class TestSamplingOption:
         ]
         for i in range(10):
             lines.append(
-                f'{i+1},10,{100+i},2150-01-01,,,"Discharge summary","Report",,,'
+                f'{i + 1},10,{100 + i},2150-01-01,,,"Discharge summary","Report",,,'
                 f'"Brief Hospital Course:\nPatient {i}.\n\nMedications on Discharge:\nMed {i}"'
             )
 

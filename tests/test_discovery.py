@@ -54,10 +54,7 @@ class TestDiscoverHeadersInTexts:
         assert bhc_row[2] == "BHC header"
 
     def test_end_boundary_detected(self) -> None:
-        texts = [
-            "Brief Hospital Course:\nPatient admitted.\n"
-            "Medications on Admission:\nAspirin"
-        ]
+        texts = ["Brief Hospital Course:\nPatient admitted.\nMedications on Admission:\nAspirin"]
         result = discover_headers_in_texts(texts)
         roles = {r[0]: r[2] for r in result}
         assert roles.get("Medications on Admission") == "End boundary"
@@ -71,8 +68,7 @@ class TestDiscoverHeadersInTexts:
 
     def test_sorted_by_frequency(self) -> None:
         texts = [
-            "Chief Complaint:\nX\nBrief Hospital Course:\nY\n"
-            "Medications on Admission:\nZ",
+            "Chief Complaint:\nX\nBrief Hospital Course:\nY\nMedications on Admission:\nZ",
             "Brief Hospital Course:\nA\nMedications on Admission:\nB",
         ]
         result = discover_headers_in_texts(texts)

@@ -257,10 +257,7 @@ Aspirin 81mg
         """Offsets should be correct even when text follows the header on the same line."""
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE, hadm_id=114)
         assert result.success is True
-        assert (
-            INLINE_TEXT_HEADER_NOTE[result.bhc_start : result.bhc_end]
-            == result.bhc_text
-        )
+        assert INLINE_TEXT_HEADER_NOTE[result.bhc_start : result.bhc_end] == result.bhc_text
 
     def test_mid_sentence_hospital_course_not_matched(self):
         """Mid-sentence 'hospital course' should NOT match because the ^ anchor
