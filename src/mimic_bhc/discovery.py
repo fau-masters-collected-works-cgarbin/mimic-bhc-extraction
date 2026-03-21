@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from mimic_bhc._util import detect_mimic_format
+from mimic_bhc._util import detect_mimic_format, load_dataframe
 from mimic_bhc.patterns import _BHC_HEADER_RE, _SECTION_HEADER_RE, END_BOUNDARY_RE
 
 if TYPE_CHECKING:
@@ -119,13 +119,7 @@ def discover_headers_from_file(
     )
 
     with duckdb.connect() as conn:
-        # Load and normalize columns
-        if input_path.endswith(".parquet"):
-            notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
-        else:
-            notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
-
-    notes.columns = notes.columns.str.lower()
+        notes = load_dataframe(conn, input_path)
 
     # MIMIC-III: filter to discharge summaries, exclude ISERROR
     if is_mimic3:

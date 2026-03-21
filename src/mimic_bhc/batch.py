@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from mimic_bhc._util import detect_mimic_format
+from mimic_bhc._util import detect_mimic_format, load_dataframe
 from mimic_bhc.extract import extract_bhc
 from mimic_bhc.stats import MIN_BHC_LENGTH
 from mimic_bhc.structure import classify_bhc_structure
@@ -103,21 +103,6 @@ def _column_map(*, is_mimic3: bool, columns: list[str]) -> _ColumnMap:
     )
 
 
-def _load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.DataFrame:
-    """Load a CSV/parquet file into a DataFrame via DuckDB.
-
-    Uses parameterized queries to avoid SQL injection from file paths.
-    """
-    if input_path.endswith(".parquet"):
-        notes = conn.execute("SELECT * FROM parquet_scan(?)", [input_path]).fetchdf()
-    else:
-        notes = conn.execute("SELECT * FROM read_csv_auto(?)", [input_path]).fetchdf()
-
-    # Normalize column names to lowercase for easier lookup
-    notes.columns = notes.columns.str.lower()
-    return notes
-
-
 def _select_best_per_admission(
     group: pd.DataFrame,
     cols: _ColumnMap,
@@ -187,7 +172,7 @@ def extract_from_file(
         is_mimic3 = format_hint == "mimic3"
 
     with duckdb.connect() as conn:
-        notes = _load_dataframe(conn, input_path)
+        notes = load_dataframe(conn, input_path)
 
     cols = _column_map(is_mimic3=is_mimic3, columns=list(notes.columns))
 
