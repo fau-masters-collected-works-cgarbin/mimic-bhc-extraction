@@ -14,6 +14,7 @@ Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV dischar
 - **Modifier Detection**: Identifies acute/chronic partitions and transitional care sections.
 - **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
 - **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, etc.).
+- **CLI and Python API**: Use the [command-line tool](#command-line) for batch processing or import the library for [single-note extraction](#single-note-extraction) and [programmatic pipeline access](#batch-pipeline).
 
 Compared to previous extraction tools, this package provides broader header pattern coverage, structure classification that connects organizational format to generation tasks, and structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
 
@@ -59,6 +60,10 @@ mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jso
 
 ### Python API
 
+The package provides two levels of API: single-note functions for working with individual discharge notes, and a batch pipeline for processing MIMIC files end-to-end.
+
+#### Single-note extraction
+
 `extract_bhc()` extracts the BHC from a single discharge note string and returns a `BHCResult`. It runs the same [two-phase extraction](docs/extraction-design.md#two-phase-extraction) as the CLI but does not handle [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (that is a batch concern, handled by the CLI/pipeline).
 
 ```python
@@ -83,6 +88,31 @@ if result.success:
 d = result.to_dict()              # dict ready for json.dump()
 loaded = BHCResult.from_dict(d)   # reconstruct from JSON
 ```
+
+#### Batch pipeline
+
+`extract_from_file()` processes an entire MIMIC notes file: loads the file, filters to discharge summaries (MIMIC-III), runs extraction and structure classification on each note, and handles addendum deduplication. It returns a list of `BHCResult`, one per admission.
+
+```python
+from mimic_bhc.pipeline import extract_from_file
+
+# Extract all BHCs from a MIMIC-III file
+results = extract_from_file("NOTEEVENTS.csv.gz")
+
+# Random sample with explicit format
+results = extract_from_file("discharge.csv.gz", format_hint="mimic4", sample_size=100)
+
+# Work with results directly
+for r in results:
+    if r.success:
+        print(r.hadm_id, r.bhc_char_count, r.bhc_structure.category)
+```
+
+Parameters:
+
+- `input_path`: Path to the MIMIC notes file (CSV, gzipped CSV, or Parquet).
+- `format_hint`: `"mimic3"`, `"mimic4"`, or `"auto"` (default). Auto-detection uses the filename.
+- `sample_size`: If set, extracts from a random sample of N admissions.
 
 ## Output Format
 
