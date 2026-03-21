@@ -139,8 +139,7 @@ _ASTERISK_ENTRY_RE = re.compile(
 # Minimum labeled sections to classify as domain-organized (Category B).
 # A single labeled section could be a false positive (e.g., one header-like
 # line in an otherwise narrative BHC). Two or more is a strong signal of
-# intentional domain-based organization. Same threshold rationale as the
-# existing binary classifier's _MIN_PROBLEM_SUBHEADERS in extract.py.
+# intentional domain-based organization.
 _MIN_DOMAIN_SECTIONS = 2
 
 # Discharge-summary section headers that may appear inside extracted BHC text

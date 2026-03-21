@@ -17,11 +17,10 @@ class BHCResult:
     """Result of extracting a BHC section from a single note.
 
     Fields are populated in layers (see docs/extraction-design.md):
-    - Extraction layer (extract_bhc): success, bhc_text, start_header,
-      end_header, bhc_start, bhc_end, failure_reason, bhc_format.
-    - Enrichment layer (callers via dataclasses.replace): hadm_id,
-      note_row_id, subject_id, chartdate, note_length, quality_flags,
-      bhc_structure.
+    - Extraction layer (extract_bhc): fields derived directly from
+      text extraction (matched text, headers, offsets, success status).
+    - Enrichment layer (callers via dataclasses.replace): record
+      identifiers, note metadata, quality flags, structure classification.
     """
 
     # --- Extraction layer ---
@@ -30,7 +29,6 @@ class BHCResult:
     start_header: str | None
     end_header: str | None
     failure_reason: str | None  # "no_header" | "empty_section" | None
-    bhc_format: str | None = None  # "chronological" | "problem_oriented" | None
     bhc_start: int | None = None
     bhc_end: int | None = None
 
@@ -112,7 +110,6 @@ class BHCResult:
             start_header=d.get("start_header"),
             end_header=d.get("end_header"),
             failure_reason=d.get("failure_reason"),
-            bhc_format=d.get("bhc_format"),
             bhc_start=d.get("bhc_start"),
             bhc_end=d.get("bhc_end"),
             hadm_id=d.get("hadm_id"),

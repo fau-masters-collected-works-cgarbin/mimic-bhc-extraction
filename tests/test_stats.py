@@ -4,6 +4,7 @@ import pytest
 
 from mimic_bhc.model import BHCResult
 from mimic_bhc.stats import compute_bhc_stats
+from mimic_bhc.structure import StructureResult
 
 
 def _make_bhc_result(
@@ -13,16 +14,17 @@ def _make_bhc_result(
     start_header: str | None = "Brief Hospital Course:",
     end_header: str | None = "Medications on Discharge",
     failure_reason: str | None = None,
-    bhc_format: str | None = "chronological",
+    category: str = "narrative",
 ) -> BHCResult:
     """Build a BHCResult for stats tests."""
+    structure = StructureResult(category=category) if success else None
     return BHCResult(
         success=success,
         bhc_text=bhc_text if success else None,
         start_header=start_header if success else None,
         end_header=end_header if success else None,
         failure_reason=failure_reason if not success else None,
-        bhc_format=bhc_format if success else None,
+        bhc_structure=structure,
     )
 
 
@@ -43,13 +45,13 @@ class TestComputeBhcStats:
                 bhc_text="Short text.",
                 start_header="Brief Hospital Course:",
                 end_header="Medications on Discharge",
-                bhc_format="chronological",
+                category="narrative",
             ),
             _make_bhc_result(
                 bhc_text="A longer piece of text here.",
                 start_header="Hospital Course:",
                 end_header="Discharge Condition",
-                bhc_format="problem_oriented",
+                category="domain_organized",
             ),
             _make_bhc_result(
                 success=False,
@@ -69,8 +71,8 @@ class TestComputeBhcStats:
         assert stats["bhc_length_stats"]["max"] == len("A longer piece of text here.")
         assert stats["short_extractions"] == 2
         assert stats["format_distribution"] == {
-            "chronological": 1,
-            "problem_oriented": 1,
+            "narrative": 1,
+            "domain_organized": 1,
         }
 
     def test_short_extractions_threshold(self):

@@ -11,7 +11,6 @@ from mimic_bhc.model import BHCResult
 from mimic_bhc.patterns import (
     _BHC_HEADER_PRIORITY,
     END_BOUNDARY_RE,
-    classify_bhc_format,
     identify_end_boundary,
 )
 
@@ -79,7 +78,6 @@ def extract_bhc(note_text: str) -> BHCResult:
         start_header=start_header,
         end_header=end_header,
         failure_reason=None,
-        bhc_format=classify_bhc_format(bhc_text),
         bhc_start=bhc_start_offset,
         bhc_end=bhc_end_offset,
     )

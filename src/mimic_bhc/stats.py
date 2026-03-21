@@ -73,13 +73,12 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:  # noqa: C901
         else:
             unbounded += 1
 
-    # Structure distribution (uses bhc_structure.category when available,
-    # falls back to bhc_format for results without structure classification)
+    # Structure distribution
     format_dist: dict[str, int] = {}
     for r in successful:
-        category = r.bhc_structure.category if r.bhc_structure else r.bhc_format
-        if category:
-            format_dist[category] = format_dist.get(category, 0) + 1
+        if r.bhc_structure:
+            cat = r.bhc_structure.category
+            format_dist[cat] = format_dist.get(cat, 0) + 1
 
     # BHC length stats
     length_stats: dict[str, float | int] = {}

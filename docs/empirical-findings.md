@@ -278,15 +278,13 @@ Detecting embedded sub-documents reliably would require either a much larger set
 
 ## Case review findings
 
-We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and the extraction-level format classification. The sample was stratified by the binary classifier's labels: 16 MIMIC-III "problem-oriented," 15 MIMIC-III "chronological," 10 MIMIC-IV "problem-oriented," 10 MIMIC-IV "chronological," plus 1 hybrid format deep dive. Most were analyzed programmatically, with a small subset manually reviewed. All extraction boundaries were verified as correct.
+We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and structure classification. The sample was stratified across datasets and structural categories, with most cases analyzed programmatically and a small subset manually reviewed. All extraction boundaries were verified as correct.
 
 Key findings:
 
-**Pattern gaps identified and fixed.** "Cardiac" and "Neurologic" (without "-al") were missing from the sub-header pattern list. Both were added. Common abbreviations CV, Pulm, GU, and the term "Cardiology" remain unmatched but have not caused misclassifications because other sub-headers exceeded the threshold of 2.
+**Pattern gaps identified and fixed.** "Cardiac" and "Neurologic" (without "-al") were missing from the structure classifier's sub-header patterns. Both were added. Common abbreviations CV, Pulm, GU, and the term "Cardiology" remain unmatched but have not caused misclassifications because other sub-headers in the same notes exceeded the minimum threshold.
 
-**Binary classifier undercounts structured BHCs.** Roughly 9 out of 30 cases classified as "chronological" (~30%) use disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to the organ-system classifier. A separate structural analysis confirmed the actual domain-organized rate is 53% (MIMIC-III) and 64% (MIMIC-IV), compared to the binary classifier's 0.7% and 0.4%.
-
-**Threshold of 2 validated.** One case has a single organ-system match (`#FEN:`) alongside disease-specific headers. The threshold correctly prevents a false positive. No reviewed case was misclassified due to the threshold being too high or too low.
+**Early binary classifier motivated the 3-category taxonomy.** An earlier version used a binary "problem-oriented"/"chronological" classifier based on organ-system sub-headers. Case review found that ~30% of notes it labeled "chronological" actually used disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to organ-system matching. This gap motivated the current 3-category classifier in `mimic_bhc/structure.py`, which detects labeled sections using structural markers (numbering, hash prefixes, standalone headers) rather than requiring organ-system keywords. The actual domain-organized rate is 53% (MIMIC-III) and 64% (MIMIC-IV).
 
 ## References
 

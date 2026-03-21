@@ -148,7 +148,6 @@ class TestExtractBhc:
         assert result.start_header == "Brief Hospital Course:"
         assert result.end_header == "Medications on Discharge"
         assert result.failure_reason is None
-        assert result.bhc_format == "chronological"
 
     def test_case_insensitive_uppercase(self):
         result = extract_bhc(UPPERCASE_HEADER_NOTE)
@@ -162,7 +161,6 @@ class TestExtractBhc:
         assert result.failure_reason == "no_header"
         assert result.bhc_text is None
         assert result.start_header is None
-        assert result.bhc_format is None
 
     def test_internal_subheaders_preserved(self):
         result = extract_bhc(INTERNAL_SUBHEADERS_NOTE)
@@ -171,7 +169,6 @@ class TestExtractBhc:
         assert "Renal:" in result.bhc_text
         assert "Infectious Disease:" in result.bhc_text
         assert result.end_header == "Discharge Condition"
-        assert result.bhc_format == "problem_oriented"
 
     def test_no_end_boundary(self):
         result = extract_bhc(NO_END_BOUNDARY_NOTE)
@@ -215,7 +212,6 @@ class TestExtractBhc:
         assert result.success is True
         assert "sepsis" in result.bhc_text
         assert result.end_header == "Discharge Medications"
-        assert result.bhc_format == "chronological"
 
     def test_summary_of_hospital_course_header(self):
         """'SUMMARY OF HOSPITAL COURSE' variant header."""
@@ -229,7 +225,6 @@ class TestExtractBhc:
         result = extract_bhc(CONCISE_SUMMARY_HEADER_NOTE)
         assert result.success is True
         assert "dobutamine" in result.bhc_text
-        assert result.bhc_format == "problem_oriented"
 
     def test_cross_line_hospital_course_not_matched(self):
         """'hospital' at end of line + 'course' at start of next should NOT match."""
@@ -370,132 +365,3 @@ Stable.
         result = extract_bhc(note)
         assert result.success is True
         assert "Hosp." in result.start_header
-
-
-# ---------------------------------------------------------------------------
-# Format classification tests
-# ---------------------------------------------------------------------------
-class TestBhcFormatClassification:
-    def test_chronological_no_subheaders(self):
-        result = extract_bhc(STANDARD_NOTE)
-        assert result.bhc_format == "chronological"
-
-    def test_problem_oriented_multiple_systems(self):
-        result = extract_bhc(INTERNAL_SUBHEADERS_NOTE)
-        assert result.bhc_format == "problem_oriented"
-
-    def test_single_subheader_is_chronological(self):
-        """A single organ-system sub-header is not enough to classify as
-        problem-oriented -- it could be a false positive."""
-        note = """\
-Brief Hospital Course:
-Patient admitted with chest pain.
-
-Cardiovascular:
-Troponin negative. Discharged in stable condition.
-
-Medications on Discharge:
-Aspirin 81mg daily
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "chronological"
-
-    def test_two_subheaders_is_problem_oriented(self):
-        note = """\
-Brief Hospital Course:
-Patient admitted with multiorgan failure.
-
-Cardiovascular:
-Troponin elevated. Started on heparin.
-
-Renal:
-Creatinine peaked at 3.2.
-
-Discharge Condition:
-Stable.
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "problem_oriented"
-
-    def test_abbreviated_subheaders(self):
-        """Common abbreviations like Neuro, GI, FEN should be recognized."""
-        note = """\
-Brief Hospital Course:
-Complex admission.
-
-Neuro:
-Alert and oriented.
-
-GI:
-Tolerating diet.
-
-FEN:
-Electrolytes repleted.
-
-Discharge Condition:
-Stable.
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "problem_oriented"
-
-    def test_cardiac_subheader_recognized(self):
-        """'Cardiac:' is a common organ-system sub-header."""
-        note = """\
-Brief Hospital Course:
-Patient admitted with chest pain and renal failure.
-
-Cardiac:
-Troponin elevated. Started on heparin drip.
-
-Renal:
-Creatinine peaked at 3.2. Nephrology consulted.
-
-Discharge Condition:
-Stable.
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "problem_oriented"
-
-    def test_neurologic_subheader_recognized(self):
-        """'Neurologic:' (without trailing '-al') should match."""
-        note = """\
-Brief Hospital Course:
-Patient admitted after stroke.
-
-Neurologic:
-Alert and oriented. Strength improving.
-
-Respiratory:
-Extubated on day 2. Room air.
-
-Discharge Condition:
-Stable.
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "problem_oriented"
-
-    def test_disease_specific_headers_are_chronological(self):
-        """Disease-name sub-headers (not organ systems) should not
-        trigger problem-oriented classification."""
-        note = """\
-Brief Hospital Course:
-73 y.o. man with CAD presents with nausea.
-
-# Upper GI bleed:
- NG lavage revealed pink fluid. Received PRBCs.
-
-# Hypoglycemia:
-FSBG 50-60 on morning of admission. Resolved with PO intake.
-
-# Depression:
-Continued on Zoloft.
-
-Medications on Discharge:
-Pantoprazole 40mg daily
-"""
-        result = extract_bhc(note)
-        assert result.bhc_format == "chronological"
-
-    def test_failed_extraction_has_no_format(self):
-        result = extract_bhc(NO_HEADER_NOTE)
-        assert result.bhc_format is None
