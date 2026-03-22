@@ -55,7 +55,7 @@ The boundary list intentionally excludes BHC-internal sub-headers like "Cardiova
 
 ## Addendum deduplication
 
-MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`hadm_id`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`; the rest are addendum duplicates.
+MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`hadm_id`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`. The rest are addendum duplicates.
 
 The batch module (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text. The rationale, following Adams et al. (2021), is that the longest version is the most complete. MIMIC-IV-Note does not have this issue (one row per admission).
 
@@ -66,10 +66,10 @@ The batch module (`extract_from_file` / CLI) handles deduplication automatically
 Each extraction result includes a list of quality flags:
 
 - `below_min_length`: BHC text is shorter than 100 characters (threshold matching Aali et al., 2024).
-- `unbounded`: No end boundary was found; BHC extends to the end of the note.
+- `unbounded`: No end boundary was found. BHC extends to the end of the note.
 - `iserror`: The note was flagged as entered in error in MIMIC-III's `ISERROR` column.
 
-These flags are informational. The extractor does not filter based on them; consumers decide what to keep.
+These flags are informational. The extractor does not filter based on them. Consumers decide what to keep.
 
 ## Structure classification
 
@@ -91,7 +91,7 @@ The batch module auto-detects whether the input file is MIMIC-III or MIMIC-IV by
 
 The header and end-boundary pattern lists were not written in one pass. They evolved through a loop of literature review, code review, empirical discovery, and comparative validation.
 
-**Step 1: Literature seeding.** The initial header and boundary lists came from published work on MIMIC section identification. Alsentzer & Kim (2018) established that "Brief Hospital Course" and "Hospital Course" are the dominant headers. Adams et al. (2021) documented the addendum deduplication strategy (keep longest per admission). Landes et al. (2022, MedSecId) and Aali et al. (2024, clin-bhc-summ) provided section header inventories used as starting points for the end-boundary list.
+**Step 1: Literature seeding.** The initial header and boundary lists came from published work on identifying sections in MIMIC notes. Alsentzer & Kim (2018) established that "Brief Hospital Course" and "Hospital Course" are the dominant headers. Adams et al. (2021) documented the addendum deduplication strategy (keep longest per admission). Landes et al. (2022, MedSecId) and Aali et al. (2024, clin-bhc-summ) provided section header inventories used as starting points for the end-boundary list.
 
 **Step 2: Code review of existing tools.** The Stanford clin-bhc-summ codebase (`utils/mimic_iv_bhc_preprocessing.py`) revealed 4 hardcoded header variants stripped via `.replace()` and a 19-header section list. Kruse et al.'s evaluation code (`evaluate_ds.py`) used 2 literal start patterns and 6 literal end patterns. Both tools informed pattern coverage but also revealed gaps: Stanford's patterns were case-sensitive, Kruse's were unanchored and missed common variants.
 

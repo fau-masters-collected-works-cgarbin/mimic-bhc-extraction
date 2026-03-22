@@ -67,7 +67,7 @@ The top header variants, from 51,131 successful extractions:
 
 "Medications on Admission" is the dominant end boundary (72.6%), listing the patient's pre-admission medications between the BHC narrative and the discharge medications section.
 
-3,772 extractions (7.4%) had no end boundary and were extracted to the end of the note. Manual inspection of a sample showed they consistently end with dictation metadata (e.g., "Dictated By:", "MEDQUIST36", "Job#") rather than clinical content from a subsequent section. These appear to be notes where the BHC is the last clinical section, followed only by dictation footers not in the end-boundary allowlist. The dictation metadata is included in the extracted text; downstream consumers may want to strip it.
+3,772 extractions (7.4%) had no end boundary and were extracted to the end of the note. Manual inspection of a sample showed they consistently end with dictation metadata (e.g., "Dictated By:", "MEDQUIST36", "Job#") rather than clinical content from a subsequent section. These appear to be notes where the BHC is the last clinical section, followed only by dictation footers not in the end-boundary allowlist. The extracted text includes the dictation metadata.
 
 ### BHC length distribution
 
@@ -124,7 +124,7 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 | Brief Hospital Course: | 291,137 | 99.3% |
 | All other variants | 2,195 | 0.7% |
 
-"Brief Hospital Course:" is even more dominant in MIMIC-IV (99.3%) than in MIMIC-III (74.2%). Broader header matching is not a significant factor for MIMIC-IV: the additional variants contribute only ~2,200 extractions.
+"Brief Hospital Course:" is even more dominant in MIMIC-IV (99.3%) than in MIMIC-III (74.3%). Broader header matching is not a significant factor for MIMIC-IV: the additional variants contribute only ~2,200 extractions.
 
 ### End-boundary distribution
 
@@ -259,7 +259,7 @@ Of the 81 true structural duplicates, 7 produce contaminated extractions where t
 
 These 7 affected extractions are not caught by existing quality flags: they are not unusually short, not unbounded, and have no ISERROR marker. They appear as successful extractions with plausible (though inflated) character counts. Some of them overlap with the embedded sub-document markers reported below, but the root cause is different: a misplaced header rather than pasted content.
 
-This analysis covers only the "Brief Hospital Course" header (74.3% of successful MIMIC-III extractions); other header variants were not analyzed for duplication.
+This analysis covers only the "Brief Hospital Course" header (74.3% of successful MIMIC-III extractions). Other header variants were not analyzed for duplication.
 
 #### Why we keep the first-match strategy
 
