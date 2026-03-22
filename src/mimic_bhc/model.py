@@ -24,7 +24,7 @@ class BHCResult:
     """
 
     # --- Extraction layer ---
-    success: bool
+    extraction_success: bool
     bhc_text: str | None
     start_header: str | None
     end_header: str | None
@@ -34,7 +34,7 @@ class BHCResult:
 
     # --- Enrichment layer (filled by callers) ---
     hadm_id: int | None = None
-    note_row_id: str | None = None
+    row_id: str | None = None
     subject_id: int | None = None
     chartdate: str | None = None
     note_length: int | None = None
@@ -71,14 +71,14 @@ class BHCResult:
         return {
             "hadm_id": self.hadm_id,
             "subject_id": self.subject_id,
-            "row_id": self.note_row_id,
+            "row_id": self.row_id,
             "chartdate": self.chartdate,
             "bhc_text": self.bhc_text,
             "bhc_char_count": self.bhc_char_count,
             "bhc_word_count": self.bhc_word_count,
             "start_header": self.start_header,
             "end_header": self.end_header,
-            "extraction_success": self.success,
+            "extraction_success": self.extraction_success,
             "failure_reason": self.failure_reason,
             "quality_flags": list(self.quality_flags),
             "bhc_structure": structure_dict,
@@ -109,7 +109,7 @@ class BHCResult:
             )
 
         return cls(
-            success=d["extraction_success"],
+            extraction_success=d["extraction_success"],
             bhc_text=d.get("bhc_text"),
             start_header=d.get("start_header"),
             end_header=d.get("end_header"),
@@ -117,7 +117,7 @@ class BHCResult:
             bhc_start=d.get("bhc_start"),
             bhc_end=d.get("bhc_end"),
             hadm_id=d.get("hadm_id"),
-            note_row_id=d.get("row_id"),
+            row_id=d.get("row_id"),
             subject_id=d.get("subject_id"),
             chartdate=d.get("chartdate"),
             note_length=d.get("note_length"),

@@ -142,7 +142,7 @@ Home with services.
 class TestExtractBhc:
     def test_standard_extraction(self):
         result = extract_bhc(STANDARD_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "chest pain" in result.bhc_text
         assert "Cardiac enzymes" in result.bhc_text
         assert result.start_header == "Brief Hospital Course:"
@@ -151,20 +151,20 @@ class TestExtractBhc:
 
     def test_case_insensitive_uppercase(self):
         result = extract_bhc(UPPERCASE_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "pneumonia" in result.bhc_text
         assert result.end_header == "Discharge Medications"
 
     def test_no_header(self):
         result = extract_bhc(NO_HEADER_NOTE)
-        assert result.success is False
+        assert result.extraction_success is False
         assert result.failure_reason == "no_header"
         assert result.bhc_text is None
         assert result.start_header is None
 
     def test_internal_subheaders_preserved(self):
         result = extract_bhc(INTERNAL_SUBHEADERS_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "Cardiovascular:" in result.bhc_text
         assert "Renal:" in result.bhc_text
         assert "Infectious Disease:" in result.bhc_text
@@ -172,51 +172,51 @@ class TestExtractBhc:
 
     def test_no_end_boundary(self):
         result = extract_bhc(NO_END_BOUNDARY_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "observation after a fall" in result.bhc_text
         assert result.end_header is None
 
     def test_empty_section(self):
         result = extract_bhc(EMPTY_BHC_NOTE)
-        assert result.success is False
+        assert result.extraction_success is False
         assert result.failure_reason == "empty_section"
 
     def test_abbreviated_header(self):
         result = extract_bhc(ABBREVIATED_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "hip replacement" in result.bhc_text
         assert result.end_header == "Followup Instructions"
 
     def test_hospital_course_header(self):
         result = extract_bhc(HOSPITAL_COURSE_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "COPD exacerbation" in result.bhc_text
         assert result.start_header == "Hospital Course:"
 
     def test_deidentification_artifacts(self):
         result = extract_bhc(DEIDENTIFICATION_ARTIFACTS_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "[**Known firstname 123**]" in result.bhc_text
         assert result.end_header == "Discharge Disposition"
 
     def test_inline_text_after_header(self):
         """Header with text continuing on the same line after the colon."""
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "sepsis" in result.bhc_text
         assert result.end_header == "Discharge Medications"
 
     def test_summary_of_hospital_course_header(self):
         """'SUMMARY OF HOSPITAL COURSE' variant header."""
         result = extract_bhc(SUMMARY_OF_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "CHF exacerbation" in result.bhc_text
         assert result.end_header == "Discharge Condition"
 
     def test_concise_summary_header(self):
         """'CONCISE SUMMARY OF HOSPITAL COURSE' variant header."""
         result = extract_bhc(CONCISE_SUMMARY_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "dobutamine" in result.bhc_text
 
     def test_cross_line_hospital_course_not_matched(self):
@@ -229,13 +229,13 @@ Medications on Discharge:
 Aspirin 81mg
 """
         result = extract_bhc(note)
-        assert result.success is False
+        assert result.extraction_success is False
         assert result.failure_reason == "no_header"
 
     def test_bhc_offsets_match_text(self):
         """bhc_start/bhc_end offsets should slice back to the extracted text."""
         result = extract_bhc(STANDARD_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert result.bhc_start is not None
         assert result.bhc_end is not None
         assert STANDARD_NOTE[result.bhc_start : result.bhc_end] == result.bhc_text
@@ -243,7 +243,7 @@ Aspirin 81mg
     def test_bhc_offsets_with_inline_header(self):
         """Offsets should be correct even when text follows the header on the same line."""
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE)
-        assert result.success is True
+        assert result.extraction_success is True
         assert INLINE_TEXT_HEADER_NOTE[result.bhc_start : result.bhc_end] == result.bhc_text
 
 
@@ -269,7 +269,7 @@ Medications on Discharge:
 Mannitol 20% IV
 """
         result = extract_bhc(note)
-        assert result.success is True
+        assert result.extraction_success is True
         assert result.start_header == "Brief Hospital Course:"
         assert "admitted to the ICU" in result.bhc_text
         assert "has been complicated" not in result.bhc_text
@@ -287,7 +287,7 @@ Medications on Discharge:
 Amoxicillin 500mg
 """
         result = extract_bhc(note)
-        assert result.success is True
+        assert result.extraction_success is True
         assert result.start_header == "Hospital Course:"
         assert "pneumonia" in result.bhc_text
 
@@ -306,7 +306,7 @@ Discharge Condition:
 Stable.
 """
         result = extract_bhc(note)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "Summary" in result.start_header or "SUMMARY" in result.start_header
         assert "CHF" in result.bhc_text
         assert "developed a fever" not in result.bhc_text
@@ -323,7 +323,7 @@ Discharge Condition:
 Stable.
 """
         result = extract_bhc(note)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "NICU" in result.start_header
         assert "observation" in result.bhc_text
 
@@ -338,5 +338,5 @@ Discharge Condition:
 Stable.
 """
         result = extract_bhc(note)
-        assert result.success is True
+        assert result.extraction_success is True
         assert "Hosp." in result.start_header

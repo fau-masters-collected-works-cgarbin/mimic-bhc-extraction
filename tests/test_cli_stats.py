@@ -20,13 +20,13 @@ def _make_result(
     """Build a BHCResult for CLI stats tests."""
     structure = StructureResult(category=category) if success else None
     return BHCResult(
-        success=success,
+        extraction_success=success,
         bhc_text=bhc_text if success else None,
         start_header=start_header if success else None,
         end_header=end_header if success else None,
         failure_reason=None if success else "no_header",
         hadm_id=hadm_id,
-        note_row_id=str(hadm_id),
+        row_id=str(hadm_id),
         subject_id=1,
         chartdate="2150-01-01",
         note_length=500,

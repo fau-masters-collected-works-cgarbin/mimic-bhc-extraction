@@ -35,7 +35,7 @@ def extract_bhc(note_text: str) -> BHCResult:
             break
     if header_match is None:
         return BHCResult(
-            success=False,
+            extraction_success=False,
             bhc_text=None,
             start_header=None,
             end_header=None,
@@ -60,7 +60,7 @@ def extract_bhc(note_text: str) -> BHCResult:
 
     if not bhc_text:
         return BHCResult(
-            success=False,
+            extraction_success=False,
             bhc_text=None,
             start_header=start_header,
             end_header=end_header,
@@ -73,7 +73,7 @@ def extract_bhc(note_text: str) -> BHCResult:
     bhc_end_offset = bhc_start_offset + len(bhc_text)
 
     return BHCResult(
-        success=True,
+        extraction_success=True,
         bhc_text=bhc_text,
         start_header=start_header,
         end_header=end_header,

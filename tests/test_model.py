@@ -18,7 +18,7 @@ class TestBHCResultEnrichment:
         """Enrichment fields should default to None/empty."""
         result = extract_bhc(STANDARD_NOTE)
         assert result.hadm_id is None
-        assert result.note_row_id is None
+        assert result.row_id is None
         assert result.subject_id is None
         assert result.chartdate is None
         assert result.note_length is None
@@ -34,7 +34,7 @@ class TestBHCResultEnrichment:
         enriched = dataclasses.replace(
             result,
             hadm_id=100,
-            note_row_id="42",
+            row_id="42",
             subject_id=42,
             chartdate="2150-01-01",
             note_length=len(STANDARD_NOTE),
@@ -42,7 +42,7 @@ class TestBHCResultEnrichment:
             bhc_structure=structure,
         )
         assert enriched.hadm_id == 100
-        assert enriched.note_row_id == "42"
+        assert enriched.row_id == "42"
         assert enriched.subject_id == 42
         assert enriched.chartdate == "2150-01-01"
         assert enriched.note_length == len(STANDARD_NOTE)
@@ -75,7 +75,7 @@ class TestBHCResultSerialization:
         enriched = dataclasses.replace(
             result,
             hadm_id=100,
-            note_row_id="42",
+            row_id="42",
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
@@ -127,7 +127,7 @@ class TestBHCResultSerialization:
         enriched = dataclasses.replace(
             result,
             hadm_id=100,
-            note_row_id="42",
+            row_id="42",
             subject_id=10,
             chartdate="2150-01-01",
             note_length=500,
@@ -143,7 +143,7 @@ class TestBHCResultSerialization:
         result = extract_bhc(NO_HEADER_NOTE)
         d = result.to_dict()
         reconstructed = BHCResult.from_dict(d)
-        assert reconstructed.success is False
+        assert reconstructed.extraction_success is False
         assert reconstructed.bhc_text is None
         assert reconstructed.bhc_structure is None
 

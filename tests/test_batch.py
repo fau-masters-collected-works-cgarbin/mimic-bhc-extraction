@@ -71,7 +71,7 @@ class TestMimic3Format:
         hadm_100_results = [r for r in results if r.hadm_id == 100]
         assert len(hadm_100_results) == 1
         # Should be from the longer note (row_id 1 with "pneumonia"), not the addendum (row_id 4)
-        assert hadm_100_results[0].note_row_id == "1"
+        assert hadm_100_results[0].row_id == "1"
         assert "pneumonia" in hadm_100_results[0].bhc_text.lower()
 
     def test_iserror_flagged(self, mimic3_noteevents_gz):
@@ -104,7 +104,7 @@ class TestMimic4Format:
         results = extract_from_file(str(mimic4_discharge_gz), format_hint="mimic4")
 
         hadm_100 = next(r for r in results if r.hadm_id == 100)
-        assert hadm_100.note_row_id == "FAKE-NOTE-DS-01"
+        assert hadm_100.row_id == "FAKE-NOTE-DS-01"
 
     def test_auto_detects_mimic4(self, mimic4_discharge_gz):
         """Auto-detect should identify MIMIC-IV by absence of CATEGORY column."""
@@ -132,9 +132,9 @@ class TestBatchEnrichment:
         for r in results:
             assert r.hadm_id is not None
             assert r.subject_id is not None
-            assert r.note_row_id is not None
+            assert r.row_id is not None
             assert isinstance(r.quality_flags, tuple)
-            if r.success:
+            if r.extraction_success:
                 assert r.bhc_text is not None
                 assert r.bhc_structure is not None
                 assert r.bhc_structure.category in (
@@ -179,7 +179,7 @@ class TestFailedExtractions:
 
         assert len(results) == 1
         assert results[0].hadm_id == 100
-        assert results[0].success is False
+        assert results[0].extraction_success is False
         assert results[0].failure_reason == "no_header"
 
 
@@ -292,7 +292,7 @@ class TestNoteTextAndAddendumCount:
 class TestQualityFlags:
     def _make_result(self, *, bhc_text="x" * 200, end_header="Medications on Discharge"):
         return BHCResult(
-            success=True,
+            extraction_success=True,
             bhc_text=bhc_text,
             start_header="Brief Hospital Course:",
             end_header=end_header,

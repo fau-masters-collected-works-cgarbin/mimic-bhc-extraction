@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class BHCStats(TypedDict):
     format_distribution: dict[str, int]
 
 
-def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:  # noqa: C901
+def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
     """Compute summary statistics from BHC extraction results."""
     total = len(results)
     if total == 0:
@@ -49,36 +50,21 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:  # noqa: C901
             "format_distribution": {},
         }
 
-    successful = [r for r in results if r.success]
-    failed = [r for r in results if not r.success]
+    successful = [r for r in results if r.extraction_success]
+    failed = [r for r in results if not r.extraction_success]
 
     # Failure breakdown
-    failure_reasons: dict[str, int] = {}
-    for r in failed:
-        if r.failure_reason:
-            failure_reasons[r.failure_reason] = failure_reasons.get(r.failure_reason, 0) + 1
+    failure_reasons = dict(Counter(r.failure_reason for r in failed if r.failure_reason))
 
     # Header distribution
-    header_dist: dict[str, int] = {}
-    for r in successful:
-        if r.start_header:
-            header_dist[r.start_header] = header_dist.get(r.start_header, 0) + 1
+    header_dist = dict(Counter(r.start_header for r in successful if r.start_header))
 
     # End header distribution
-    end_dist: dict[str, int] = {}
-    unbounded = 0
-    for r in successful:
-        if r.end_header is not None:
-            end_dist[r.end_header] = end_dist.get(r.end_header, 0) + 1
-        else:
-            unbounded += 1
+    end_dist = dict(Counter(r.end_header for r in successful if r.end_header is not None))
+    unbounded = sum(1 for r in successful if r.end_header is None)
 
     # Structure distribution
-    format_dist: dict[str, int] = {}
-    for r in successful:
-        if r.bhc_structure:
-            cat = r.bhc_structure.category
-            format_dist[cat] = format_dist.get(cat, 0) + 1
+    format_dist = dict(Counter(r.bhc_structure.category for r in successful if r.bhc_structure))
 
     # BHC length stats
     length_stats: dict[str, float | int] = {}

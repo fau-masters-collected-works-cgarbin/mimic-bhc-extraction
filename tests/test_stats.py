@@ -19,7 +19,7 @@ def _make_bhc_result(
     """Build a BHCResult for stats tests."""
     structure = StructureResult(category=category) if success else None
     return BHCResult(
-        success=success,
+        extraction_success=success,
         bhc_text=bhc_text if success else None,
         start_header=start_header if success else None,
         end_header=end_header if success else None,

@@ -30,7 +30,7 @@ def _build_quality_flags(result: BHCResult, iserror: int | None = None) -> tuple
     if iserror == 1:
         flags.append("iserror")
 
-    if not result.success:
+    if not result.extraction_success:
         return tuple(flags)
 
     if result.bhc_text and len(result.bhc_text) < MIN_BHC_LENGTH:
@@ -57,13 +57,13 @@ def _process_note(
     result = extract_bhc(note_text)
 
     structure = None
-    if result.success and result.bhc_text:
+    if result.extraction_success and result.bhc_text:
         structure = classify_bhc_structure(result.bhc_text)
 
     return dataclasses.replace(
         result,
         hadm_id=hadm_id,
-        note_row_id=row_id,
+        row_id=row_id,
         subject_id=subject_id,
         chartdate=chartdate,
         note_length=note_length,
@@ -146,9 +146,10 @@ def _select_best_per_admission(
             best_bhc_len = bhc_len
             best_result = note_result
 
-    # best_result is always set because group is never empty (groupby guarantees it)
+    # groupby guarantees non-empty groups, so best_result is always set.
+    assert best_result is not None, "empty group in _select_best_per_admission"  # noqa: S101
     return dataclasses.replace(
-        best_result,  # type: ignore[arg-type]
+        best_result,
         note_row_count=len(group),
     )
 
