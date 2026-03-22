@@ -112,3 +112,51 @@ We evaluated each candidate on the full corpus for extraction yield and false-po
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
 This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. The `discover` CLI command is the primary tool for step 3. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
+
+## Updating documentation metrics
+
+The documentation contains two kinds of numeric claims, each with a different update process.
+
+### Code-derived metrics (automated)
+
+Claims about pattern counts, thresholds, category names, and quality flag names are verified by `tests/test_doc_sync.py`. These tests parse the prose in this document and `README.md`, extract the claimed values, and compare them against the corresponding code constants. If you change a pattern list, threshold, or category set, the tests will fail until the documentation is updated to match (or vice versa).
+
+Run `uv run pytest tests/test_doc_sync.py -v` to see which claims are covered. The test names and docstrings describe each verified claim.
+
+### Data-derived metrics (manual)
+
+Extraction success rates, header distributions, length statistics, structure classification percentages, and tool comparisons in [Empirical findings](empirical-findings.md) come from running the pipeline on MIMIC-III and MIMIC-IV datasets. These datasets are not included in this repository (they require a PhysioNet credentialed access agreement).
+
+To regenerate these metrics after code changes that could affect extraction results (new patterns, changed boundary logic, modified structure classification):
+
+1. Run extraction on both datasets:
+
+```bash
+# Simplify the commands - replace with your paths
+export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
+export MIMIC4_NOTES=../mimic-iv-note/physionet.org/files/mimic-iv-note/2.2/note/
+
+uv run mimic-bhc-extract extract \
+    --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --output results/bhc_mimic3.jsonl
+uv run mimic-bhc-extract extract \
+    --input $MIMIC4_NOTES/discharge.csv.gz --output results/bhc_mimic4.jsonl
+```
+
+2. Generate statistics:
+
+```bash
+uv run mimic-bhc-extract stats --input results/bhc_mimic3.jsonl
+uv run mimic-bhc-extract stats --input results/bhc_mimic4.jsonl
+```
+
+3. Run the Kruse comparison (requires `--include-note-text` during extraction):
+
+```bash
+uv run mimic-bhc-extract extract \
+    --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
+    --output results/bhc_mimic3_with_text.jsonl --include-note-text
+uv run python scripts/compare_bhc_extraction_kruse.py \
+    --input results/bhc_mimic3_with_text.jsonl
+```
+
+4. Update the tables in `docs/empirical-findings.md` with the new numbers. Also update the structure classification percentages in this document (currently "52% MIMIC-III, 62% MIMIC-IV, 4.4% standardized template" in the Structure classification section).

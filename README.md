@@ -42,21 +42,23 @@ The extractor finds the BHC section using [header pattern matching](docs/extract
 All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The same commands work with MIMIC-IV-Note's `discharge.csv.gz` file. The extractor auto-detects the format.
 
 ```bash
-# Set path to MIMIC notes file - replace with your path
-export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
+# Set paths to MIMIC notes files - replace with your paths
+export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
+# For MIMIC-IV:
+# export MIMIC4_NOTES=../mimic-iv-note/physionet.org/files/mimic-iv-note/2.2/note/
 ```
 
 Extract BHCs from a random sample of 100 MIMIC-III notes with pretty-printed JSON output (good for human inspection):
 
 ```bash
-mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
+mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json
 ```
 
 Extract all BHCs from a MIMIC notes file into JSON Lines format (one JSON object per line, good for programmatic use) - it will take a few minutes:
 
 ```bash
-mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jsonl
+mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --output bhc.jsonl
 ```
 
 ### Python API
@@ -165,11 +167,11 @@ uv run mimic-bhc-extract stats --input bhc.jsonl
 The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns.
 
 ```bash
-# Set path to MIMIC notes file - replace with your path
-export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
+# Simplify the command - replace with your path
+export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
 
 # Omit the --notes flag to use the default (500 notes), or set to 0 to scan all notes
-uv run mimic-bhc-extract discover --input $MIMIC_PATH/NOTEEVENTS.csv.gz --notes 100
+uv run mimic-bhc-extract discover --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --notes 100
 ```
 
 While adding more variants to the patterns can increase extraction coverage, it also risks false positives if the pattern becomes too permissive. The discovery tool helps balance this tradeoff by showing what headers exist in the notes and how they are currently classified.
@@ -181,7 +183,7 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 Run extraction with the CLI, then use `stats` to review the results:
 
 ```bash
-mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz \
+mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
     --output results/bhc_extraction_mimic-iii.jsonl --include-note-text
 
 mimic-bhc-extract stats --input results/bhc_extraction_mimic-iii.jsonl
@@ -253,16 +255,16 @@ After setup, use `uv run` to invoke the CLI within the project environment.
 Try a small sample to verify it works:
 
 ```bash
-# Set path to MIMIC notes file - replace with your path
-export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
-uv run mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
+# Simplify the command - replace with your path
+export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
+uv run mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json
 ```
 
 Once you verify it works, run on the full file (it will take a few minutes):
 
 ```bash
-uv run mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --output bhc.jsonl
+uv run mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --output bhc.jsonl
 ```
 
 ### Running tests
@@ -279,3 +281,7 @@ uv run ruff format src/ tests/
 ```
 
 These run automatically on commit via pre-commit hooks, but can be run manually to check before committing.
+
+### Updating documentation metrics
+
+If you change extraction patterns, boundary logic, or structure classification, the empirical results in `docs/empirical-findings.md` may be stale. Re-run the extraction on MIMIC-III and MIMIC-IV and update the documented numbers. See [Updating documentation metrics](docs/extraction-design.md#updating-documentation-metrics) for the steps.
