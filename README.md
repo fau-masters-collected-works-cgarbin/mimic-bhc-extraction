@@ -73,7 +73,7 @@ from mimic_bhc import extract_bhc, classify_bhc_structure
 note = "Brief Hospital Course:\nPatient was admitted for chest pain..."
 result = extract_bhc(note)
 
-if result.success:
+if result.extraction_success:
     print(result.bhc_text)         # extracted text
     print(result.bhc_char_count)   # character count (computed property)
     print(result.start_header)     # e.g. "Brief Hospital Course:"
@@ -105,7 +105,7 @@ results = extract_from_file("discharge.csv.gz", format_hint="mimic4", sample_siz
 
 # Work with results directly
 for r in results:
-    if r.success:
+    if r.extraction_success:
         print(r.hadm_id, r.bhc_char_count, r.bhc_structure.category)
 ```
 
@@ -165,7 +165,7 @@ uv run mimic-bhc-extract stats --input bhc.jsonl
 The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns.
 
 ```bash
-# Simplify the command - replace with your path
+# Set path to MIMIC notes file - replace with your path
 export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
 
 # Omit the --notes flag to use the default (500 notes), or set to 0 to scan all notes
@@ -253,7 +253,7 @@ After setup, use `uv run` to invoke the CLI within the project environment.
 Try a small sample to verify it works:
 
 ```bash
-# Simplify the command - replace with your path
+# Set path to MIMIC notes file - replace with your path
 export MIMIC_PATH=../mimic-iii/physionet.org/files/mimiciii/1.4/
 uv run mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json
