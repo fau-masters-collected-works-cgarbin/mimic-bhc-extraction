@@ -3,6 +3,9 @@
 Design rationale documented in docs/extraction-design.md. Update both when
 changing patterns, thresholds, or algorithm logic. Concrete claims in the
 doc (pattern counts, threshold values) are verified by tests/test_doc_sync.py.
+
+If you change these patterns, the empirical results in docs/empirical-findings.md
+may be stale. See docs/extraction-design.md#updating-documentation-metrics.
 """
 
 from __future__ import annotations

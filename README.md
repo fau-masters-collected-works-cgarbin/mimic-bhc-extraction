@@ -44,8 +44,7 @@ All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The sam
 ```bash
 # Set paths to MIMIC notes files - replace with your paths
 export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
-# For MIMIC-IV:
-# export MIMIC4_NOTES=../mimic-iv-note/physionet.org/files/mimic-iv-note/2.2/note/
+export MIMIC4_NOTES=../mimic-iv-note/physionet.org/files/mimic-iv-note/2.2/note/
 ```
 
 Extract BHCs from a random sample of 100 MIMIC-III notes with pretty-printed JSON output (good for human inspection):
@@ -55,10 +54,14 @@ mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json
 ```
 
-Extract all BHCs from a MIMIC notes file into JSON Lines format (one JSON object per line, good for programmatic use) - it will take a few minutes:
+Extract all BHCs into JSON Lines format (one JSON object per line, good for programmatic use) - it will take a few minutes:
 
 ```bash
-mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --output bhc.jsonl
+# MIMIC-III
+mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --output bhc_mimic3.jsonl
+
+# MIMIC-IV
+mimic-bhc-extract extract --input $MIMIC4_NOTES/discharge.csv.gz --output bhc_mimic4.jsonl
 ```
 
 ### Python API
