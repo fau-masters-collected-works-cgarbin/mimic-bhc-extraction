@@ -198,46 +198,46 @@ Kruse et al. ("Large Language Models with Temporal Reasoning for Longitudinal Cl
 
 ### Empirical comparison
 
-Both extractors run on the same text for each of the 52,726 MIMIC-III admissions, after deduplicating to the longest note per hadm_id:
+Both extractors run on the same note text for each of the 52,726 MIMIC-III admissions. For admissions with multiple note rows (addendums), both see the note selected by the extraction pipeline (the one with the longest BHC text after extraction).
 
 | Metric | Ours | Kruse |
 |--------|------|-------|
-| Success rate | 97.0% (51,131) | 85.0% (44,839) |
+| Success rate | 97.0% (51,131) | 85.1% (44,866) |
 
 Agreement breakdown:
 
 | Category | Count | % |
 |----------|------:|--:|
-| Both succeed | 44,807 | 85.0% |
-| Only ours succeeds | 6,324 | 12.0% |
-| Only Kruse succeeds | 32 | 0.1% |
-| Both fail | 1,563 | 3.0% |
+| Both succeed | 44,835 | 85.0% |
+| Only ours succeeds | 6,296 | 11.9% |
+| Only Kruse succeeds | 31 | 0.1% |
+| Both fail | 1,564 | 3.0% |
 
-When both succeed (44,807 cases): 88.5% have near-exact text overlap (SequenceMatcher ratio > 0.99), median overlap is 1.000, mean length difference is +42 characters (ours slightly longer). 197 cases have overlap below 0.5, caused by different boundary selection (our broader end-boundary list terminates extraction at a different point than Kruse's six literal patterns). All 1,563 both-fail cases fail with `no_header` on our side.
+When both succeed (44,835 cases): 88.7% have near-exact text overlap (SequenceMatcher ratio > 0.99), median overlap is 1.000, mean length difference is +40 characters (ours slightly longer). 34 cases have overlap below 0.5, caused by different boundary selection (our broader end-boundary list terminates extraction at a different point than Kruse's six literal patterns). All 1,564 both-fail cases fail with `no_header` on our side.
 
-### Why ours captures 6,324 more cases
+### Why ours captures 6,296 more cases
 
 Kruse's two literal patterns miss header variants that are common in MIMIC-III:
 
 | Header variant | Count |
 |----------------|------:|
-| `HOSPITAL COURSE:` (matched by our broader regex but not Kruse's case-sensitive literal) | 3,072 |
-| `HOSPITAL COURSE` (no colon) | 1,409 |
-| `SUMMARY OF HOSPITAL COURSE` | 884 |
+| `HOSPITAL COURSE:` (matched by our broader regex but not Kruse's case-sensitive literal) | 3,032 |
+| `HOSPITAL COURSE` (no colon) | 1,414 |
+| `SUMMARY OF HOSPITAL COURSE` | 885 |
 | `Brief Hospital Course:` (case variants not matching Kruse's literal) | 188 |
-| `CONCISE SUMMARY OF HOSPITAL COURSE` | 173 |
+| `CONCISE SUMMARY OF HOSPITAL COURSE` | 175 |
 | `HISTORY OF HOSPITAL COURSE` | 161 |
-| Other (NICU COURSE, hosp course, etc.) | 437 |
+| Other (NICU COURSE, hosp course, etc.) | 441 |
 
-### Why Kruse captures 32 cases we miss
+### Why Kruse captures 31 cases we miss
 
-All 32 fail with `no_header` on our side. Investigation of the original 42 cases (before the "Condition on Discharge" boundary addition moved 10 into "both succeed") revealed two root causes, split evenly:
+All 31 fail with `no_header` on our side. Investigation revealed two root causes, split roughly evenly:
 
 Half are PHI de-identification artifacts. MIMIC-III's de-identification inserts `[**...**]` tokens that break our start-of-line anchor. Two sub-patterns: (a) `[**Hospital NNN**] HOSPITAL COURSE:` where the de-identifier replaced what was likely "BRIEF" or "SUMMARY OF" with a hospital placeholder, and (b) truncated words from `[**Last Name...**]` tokens abutting the header, producing fragments like `SU[**Last Name...**]OF HOSPITAL COURSE:`. Kruse's unanchored regex matches "HOSPITAL COURSE:" anywhere in the line, bypassing these artifacts.
 
 Half are unrecognized prefix variants not in our pattern list. Examples: "REVIEW OF HOSPITAL COURSE:", "ADDENDUM - HOSPITAL COURSE:", "MEDICAL INTENSIVE CARE UNIT HOSPITAL COURSE:", "CONTINUING HIS HOSPITAL COURSE:", "REMAINING HOSPITAL COURSE:". These are legitimate but rare headers (each appears 1-4 times in the full corpus).
 
-All are genuine BHC sections with real clinical narrative (not false positives). This represents a 0.06% gap (32/52,726) that could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap. The affected cases are too few to justify the added pattern complexity and false-positive risk.
+All are genuine BHC sections with real clinical narrative (not false positives). This represents a 0.06% gap (31/52,726) that could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap. The affected cases are too few to justify the added pattern complexity and false-positive risk.
 
 ## Known Limitations
 
