@@ -51,10 +51,11 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
         }
 
     successful = [r for r in results if r.extraction_success]
-    failed = [r for r in results if not r.extraction_success]
 
     # Failure breakdown
-    failure_reasons = dict(Counter(r.failure_reason for r in failed if r.failure_reason))
+    failure_reasons = dict(
+        Counter(r.failure_reason for r in results if not r.extraction_success and r.failure_reason)
+    )
 
     # Header distribution
     header_dist = dict(Counter(r.start_header for r in successful if r.start_header))
@@ -85,7 +86,7 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
     return {
         "total": total,
         "successes": len(successful),
-        "failures": len(failed),
+        "failures": total - len(successful),
         "success_rate": len(successful) / total,
         "failure_reasons": failure_reasons,
         "header_distribution": header_dist,

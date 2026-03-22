@@ -21,7 +21,8 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from mimic_bhc._util import detect_mimic_format, load_dataframe
+from mimic_bhc._util import is_mimic3 as _is_mimic3
+from mimic_bhc._util import load_dataframe
 from mimic_bhc.patterns import _BHC_HEADER_RE, _SECTION_HEADER_RE, END_BOUNDARY_RE
 
 if TYPE_CHECKING:
@@ -112,11 +113,7 @@ def discover_headers_from_file(
     list[tuple[str, int, str]]
         ``(header_text, frequency, role)`` sorted by frequency descending.
     """
-    is_mimic3 = (
-        format_hint == "mimic3"
-        if format_hint != "auto"
-        else detect_mimic_format(input_path) == "mimic3"
-    )
+    is_mimic3 = _is_mimic3(input_path, format_hint)
 
     with duckdb.connect() as conn:
         notes = load_dataframe(conn, input_path)

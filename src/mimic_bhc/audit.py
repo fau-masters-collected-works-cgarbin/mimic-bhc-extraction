@@ -8,6 +8,7 @@ for human review status. No MIMIC text is included.
 from __future__ import annotations
 
 import random
+from collections import Counter
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -36,14 +37,9 @@ def build_audit_entries(
     now = datetime.now(tz=UTC).isoformat()
 
     # Count header and boundary frequencies for rarity detection.
-    header_counts: dict[str, int] = {}
-    boundary_counts: dict[str, int] = {}
-    for r in results:
-        if r.extraction_success:
-            if r.start_header:
-                header_counts[r.start_header] = header_counts.get(r.start_header, 0) + 1
-            if r.end_header:
-                boundary_counts[r.end_header] = boundary_counts.get(r.end_header, 0) + 1
+    successful = [r for r in results if r.extraction_success]
+    header_counts = Counter(r.start_header for r in successful if r.start_header)
+    boundary_counts = Counter(r.end_header for r in successful if r.end_header)
 
     entries = []
     for r in results:

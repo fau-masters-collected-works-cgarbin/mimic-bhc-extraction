@@ -6,7 +6,7 @@ See docs/extraction-design.md for the layered population model.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from mimic_bhc.structure import StructureResult
@@ -28,7 +28,7 @@ class BHCResult:
     bhc_text: str | None
     start_header: str | None
     end_header: str | None
-    failure_reason: str | None  # "no_header" | "empty_section" | None
+    failure_reason: Literal["no_header", "empty_section"] | None
     bhc_start: int | None = None
     bhc_end: int | None = None
 

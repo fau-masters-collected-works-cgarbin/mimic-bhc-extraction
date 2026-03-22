@@ -47,7 +47,7 @@ def write_results(
     dicts = [r.to_dict() for r in results]
     with out.open("w") as f:
         if pretty:
-            json.dump(dicts, f, indent=2)
+            json.dump(dicts, f, indent=2, default=str)
             f.write("\n")
         else:
             for d in dicts:

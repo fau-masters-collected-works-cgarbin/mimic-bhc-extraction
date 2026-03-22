@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from mimic_bhc._util import detect_mimic_format, load_dataframe
+from mimic_bhc._util import is_mimic3 as _is_mimic3
+from mimic_bhc._util import load_dataframe
 from mimic_bhc.extract import extract_bhc
 from mimic_bhc.stats import MIN_BHC_LENGTH
 from mimic_bhc.structure import classify_bhc_structure
@@ -86,7 +87,13 @@ class _ColumnMap:
 
 
 def _column_map(*, is_mimic3: bool, columns: list[str]) -> _ColumnMap:
-    """Return the column mapping for the detected MIMIC version."""
+    """Return the column mapping for the detected MIMIC version.
+
+    Expects lowercase column names (as produced by ``load_dataframe``).
+    """
+    assert all(c == c.lower() for c in columns), (  # noqa: S101
+        "columns must be lowercase; call load_dataframe() first"
+    )
     if is_mimic3:
         return _ColumnMap(
             hadm_id="hadm_id",
@@ -123,17 +130,19 @@ def _select_best_per_admission(
     best_result: BHCResult | None = None
     best_bhc_len = -1  # -1 so that even bhc_char_count=0 wins on the first note
 
-    for _, row in group.iterrows():
-        chartdate = (
-            str(row[cols.chartdate]) if cols.chartdate and pd.notna(row[cols.chartdate]) else None
-        )
-        note_text = str(row[cols.text]) if pd.notna(row[cols.text]) else ""
-        iserror = int(row[cols.iserror]) if cols.iserror and pd.notna(row[cols.iserror]) else None
+    for row in group.itertuples(index=False):
+        raw_chartdate = getattr(row, cols.chartdate) if cols.chartdate else None
+        has_chartdate = raw_chartdate is not None and pd.notna(raw_chartdate)
+        chartdate = str(raw_chartdate) if has_chartdate else None
+        raw_text = getattr(row, cols.text)
+        note_text = str(raw_text) if pd.notna(raw_text) else ""
+        raw_iserror = getattr(row, cols.iserror) if cols.iserror else None
+        iserror = int(raw_iserror) if raw_iserror is not None and pd.notna(raw_iserror) else None
 
         note_result = _process_note(
-            hadm_id=int(row[cols.hadm_id]),
-            subject_id=int(row[cols.subject_id]),
-            row_id=str(row[cols.row_id]),
+            hadm_id=int(getattr(row, cols.hadm_id)),
+            subject_id=int(getattr(row, cols.subject_id)),
+            row_id=str(getattr(row, cols.row_id)),
             chartdate=chartdate,
             note_text=note_text,
             note_length=len(note_text),
@@ -179,17 +188,16 @@ def extract_from_file(
     """
     input_path = str(input_path)
 
-    if format_hint == "auto":
-        is_mimic3 = detect_mimic_format(input_path) == "mimic3"
-    else:
-        is_mimic3 = format_hint == "mimic3"
+    is_mimic3 = _is_mimic3(input_path, format_hint)
 
     with duckdb.connect() as conn:
         notes = load_dataframe(conn, input_path)
 
     cols = _column_map(is_mimic3=is_mimic3, columns=list(notes.columns))
 
-    # MIMIC-III: filter to discharge summaries
+    # MIMIC-III: filter to discharge summaries. This loads all note categories
+    # into memory before filtering, but the full DataFrame is short-lived and
+    # replaced by the filtered copy (~52k rows vs ~2M) immediately after.
     if is_mimic3:
         notes = notes[notes["category"] == "Discharge summary"].copy()
 

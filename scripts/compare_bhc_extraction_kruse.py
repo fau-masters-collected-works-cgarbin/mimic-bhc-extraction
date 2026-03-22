@@ -41,10 +41,13 @@ _HIGH_OVERLAP_THRESHOLD = 0.99
 #
 # Behavior: returns the text between the first matching start header and
 # the first matching end header. Returns empty string if either is missing.
-# The end-header search is NOT anchored after the start match (re.search
-# scans from position 0), so in principle an end header appearing before
-# the BHC start could cause incorrect extraction. In practice this is
-# unlikely because the end markers typically follow BHC in MIMIC-III.
+#
+# Known limitation (present in the original code): the end-header search
+# starts from position 0, not from after the start match. If an end header
+# appears before the BHC start header, the extraction would be incorrect.
+# We reproduce this behavior intentionally to keep the comparison faithful
+# to the original implementation. In practice the end markers almost always
+# follow BHC in MIMIC-III discharge summaries, so this rarely triggers.
 def kruse_extract_hospital_course(text: str) -> str:
     """Extract Hospital Course using Kruse et al.'s regex logic."""
     hospital_course_start = re.search(r"(Brief Hospital Course:|HOSPITAL COURSE:)", text)

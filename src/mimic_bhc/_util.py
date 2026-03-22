@@ -25,6 +25,16 @@ def load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.DataF
     return notes
 
 
+def is_mimic3(input_path: str, format_hint: str = "auto") -> bool:
+    """Resolve a format hint to a concrete MIMIC-III boolean.
+
+    When *format_hint* is ``"auto"``, auto-detects from the file header.
+    """
+    if format_hint == "auto":
+        return detect_mimic_format(input_path) == "mimic3"
+    return format_hint == "mimic3"
+
+
 def detect_mimic_format(csv_path: str) -> str:
     """Auto-detect MIMIC version by checking for CATEGORY column in first row.
 

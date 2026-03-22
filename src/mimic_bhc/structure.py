@@ -217,8 +217,13 @@ def _detect_numbering_convention(bhc_text: str) -> str:
         "*": len(_ASTERISK_ENTRY_RE.findall(bhc_text)),
     }
 
-    # Check for standalone headers (no prefix marker)
-    standalone_count = len(_STANDALONE_HEADER_RE.findall(bhc_text))
+    # Check for standalone headers (no prefix marker), excluding
+    # discharge-summary headers that may leak into BHC text
+    standalone_count = sum(
+        1
+        for m in _STANDALONE_HEADER_RE.finditer(bhc_text)
+        if not _is_discharge_header(bhc_text, m.start())
+    )
     # Only count standalone if no other markers are dominant
     prefix_total = sum(counts.values())
     has_standalone_headers = (
