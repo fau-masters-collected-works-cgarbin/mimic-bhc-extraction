@@ -73,18 +73,20 @@ def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901
             print(f"  {reason:<20} {count:>8,}")
 
     # Start header distribution
+    successes = stats["successes"]
     if stats["header_distribution"]:
         print("\nStart headers:")
         for header, count in sorted(stats["header_distribution"].items(), key=lambda x: -x[1]):
-            print(f"  {header:<40} {count:>8,}")
+            print(f"  {header:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
 
     # End header distribution
     if stats["end_header_distribution"]:
         print("\nEnd headers:")
         for header, count in sorted(stats["end_header_distribution"].items(), key=lambda x: -x[1]):
-            print(f"  {header:<40} {count:>8,}")
+            print(f"  {header:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
     if stats["unbounded_extractions"] > 0:
-        print(f"  {'(unbounded)':<40} {stats['unbounded_extractions']:>8,}")
+        ub = stats["unbounded_extractions"]
+        print(f"  {'(unbounded)':<40} {ub:>8,} ({100 * ub / successes:>5.1f}%)")
 
     # BHC length stats
     length = stats["bhc_length_stats"]
@@ -102,7 +104,7 @@ def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901
     if stats["format_distribution"]:
         print("\nStructure distribution:")
         for fmt, count in sorted(stats["format_distribution"].items(), key=lambda x: -x[1]):
-            print(f"  {fmt:<40} {count:>8,}")
+            print(f"  {fmt:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
 
     return 0
 
