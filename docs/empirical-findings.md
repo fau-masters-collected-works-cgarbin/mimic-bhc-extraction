@@ -1,6 +1,6 @@
 # Empirical Findings
 
-Extraction results, tool comparisons, and known limitations from running the extractor on MIMIC-III v1.4 and MIMIC-IV-Note v2.2.
+Extraction results, tool comparisons, and known limitations from running the extractor on MIMIC-III v1.4 and MIMIC-IV-Note v2.2. For the extraction algorithm and design rationale, see [Extraction Design](extraction-design.md).
 
 ## MIMIC-III Results
 
@@ -35,20 +35,21 @@ Adams et al. (2021) report ~109K source-target pairs from MIMIC-III. This number
 
 ### Header distribution
 
-The top header variants, from 51,131 successful extractions:
+The top header variants (count >= 100), from 51,131 successful extractions:
 
 | Header variant | Count | % |
 |----------------|------:|--:|
 | Brief Hospital Course: | 37,980 | 74.3% |
 | HOSPITAL COURSE: | 9,435 | 18.5% |
-| HOSPITAL COURSE (no colon) | 1,420 | 2.8% |
-| SUMMARY OF HOSPITAL COURSE | 1,264 | 2.5% |
-| CONCISE SUMMARY OF HOSPITAL COURSE | 291 | 0.6% |
-| BRIEF SUMMARY OF HOSPITAL COURSE | 213 | 0.4% |
-| HISTORY OF HOSPITAL COURSE | 176 | 0.3% |
-| BRIEF HOSPITAL COURSE: (all-caps) | 113 | 0.2% |
-| NICU COURSE | 71 | 0.1% |
-| Other variants | 168 | 0.3% |
+| HOSPITAL COURSE | 1,420 | 2.8% |
+| SUMMARY OF HOSPITAL COURSE | 886 | 1.7% |
+| SUMMARY OF HOSPITAL COURSE: | 378 | 0.7% |
+| CONCISE SUMMARY OF HOSPITAL COURSE | 175 | 0.3% |
+| BRIEF SUMMARY OF HOSPITAL COURSE: | 172 | 0.3% |
+| HISTORY OF HOSPITAL COURSE | 161 | 0.3% |
+| CONCISE SUMMARY OF HOSPITAL COURSE: | 116 | 0.2% |
+| BRIEF HOSPITAL COURSE: | 113 | 0.2% |
+| Other variants (26 variants below threshold) | 295 | 0.6% |
 
 "Brief Hospital Course:" (74.3%) is the standard header. "HOSPITAL COURSE:" (18.5%) is the main alternative.
 
@@ -56,7 +57,7 @@ The top header variants, from 51,131 successful extractions:
 
 | Boundary | Count | % |
 |----------|------:|--:|
-| Medications on Admission | 37,094 | 72.6% |
+| Medications on Admission | 37,094 | 72.5% |
 | Discharge Diagnosis/Diagnoses | 6,103 | 11.9% |
 | (no boundary, extracted to end of note) | 3,772 | 7.4% |
 | Discharge Medications | 2,799 | 5.5% |
@@ -65,7 +66,7 @@ The top header variants, from 51,131 successful extractions:
 | Discharge Disposition | 199 | 0.4% |
 | Other (Condition on Discharge, Facility, Discharge Status, Follow-up, Attending, Diet) | 46 | 0.1% |
 
-"Medications on Admission" is the dominant end boundary (72.6%), listing the patient's pre-admission medications between the BHC narrative and the discharge medications section.
+"Medications on Admission" is the dominant end boundary (72.5%), listing the patient's pre-admission medications between the BHC narrative and the discharge medications section.
 
 3,772 extractions (7.4%) had no end boundary and were extracted to the end of the note. Manual inspection of a sample showed they consistently end with dictation metadata (e.g., "Dictated By:", "MEDQUIST36", "Job#") rather than clinical content from a subsequent section. These appear to be notes where the BHC is the last clinical section, followed only by dictation footers not in the end-boundary allowlist. The extracted text includes the dictation metadata.
 
@@ -134,7 +135,7 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 | Discharge Medications | 15,342 | 5.2% |
 | Discharge Disposition | 799 | 0.3% |
 | (no boundary) | 437 | 0.1% |
-| Other | 211 | 0.1% |
+| Other (Discharge Diagnosis, Facility, Followup Instructions, etc.) | 211 | 0.1% |
 
 "Medications on Admission" is the dominant boundary in both datasets. Only 437 unbounded extractions (0.1%), compared to 3,772 (7.4%) in MIMIC-III.
 
@@ -162,7 +163,7 @@ A detailed review of the Stanford code and the associated paper (Aali et al., JA
 
 **Extraction methodology is underspecified.** Neither the paper nor the repo publish the actual extraction regex. The paper describes preprocessing as "whitespace removal, uniform spacing, section identification, header standardization, extraneous symbol removal, and tokenization" using regex and NLTK, but the specific patterns are not disclosed. The repo (`utils/mimic_iv_bhc_preprocessing.py`) contains only post-extraction cleanup of an already-extracted BHC column. We cannot directly compare extraction strategies, only validate against their published dataset statistics.
 
-**Drop rate is significant but unexplained.** They started with 331,794 MIMIC-IV-Note discharge summaries and produced 270,033 note-BHC pairs, dropping ~19% of notes. The paper does not break down why notes were dropped (missing BHC header? malformed structure? minimum length filter?). Our structured extraction metadata can address this gap.
+**Drop rate is significant but unexplained.** They started with 331,794 MIMIC-IV-Note discharge summaries (our extraction sees 331,793, a difference of 1 that is unexplained) and produced 270,033 note-BHC pairs, dropping ~19% of notes. The paper does not break down why notes were dropped (missing BHC header? malformed structure? minimum length filter?). Our structured extraction metadata can address this gap.
 
 **Header handling.** Their post-extraction cleanup strips four hardcoded header variants via `.replace()` calls: "Brief Hospital Course:\n", "BRIEF HOSPITAL COURSE:\n", "BRIEF HOSPITAL COURSE", "Brief Hospital Course". Our extractor uses four case-insensitive regex patterns that match these plus additional variants: "hospital course", "hospitalization course", "nicu course", "hosp course", each with optional prefixes like "summary of", "concise summary of", "history of". We preserve the matched header as metadata rather than stripping it.
 
@@ -193,7 +194,7 @@ Kruse et al. ("Large Language Models with Temporal Reasoning for Longitudinal Cl
 | End patterns | 15 patterns, start-of-line anchored | 6 literal strings, unanchored |
 | Missing boundary | Extracts to end of note | Returns empty string |
 | Case handling | Case-insensitive (`re.IGNORECASE`) | Case-sensitive (two literal variants) |
-| Header variants | "summary of", "concise summary of", "history of", "nicu course", "hosp. course" | None |
+| Header variants | "summary of", "concise summary of", "history of", "nicu course", "hosp course" | None |
 | Addendum handling | Extracts from all rows, keeps longest BHC per hadm_id | Not applicable (full note saved verbatim) |
 
 ### Empirical comparison
@@ -283,12 +284,12 @@ We scanned all successful extractions for markers of embedded content: lines mat
 
 | Marker | MIMIC-III (51,131 successful) | MIMIC-IV (293,329 successful) |
 |--------|-------------------------------|-------------------------------|
-| Any marker found | 1,098 (2.2%) | 788 (0.3%) |
-| Embedded meds list | 1,019 (2.00%) | 571 (0.19%) |
-| Embedded PMH | 82 (0.16%) | 142 (0.05%) |
-| Embedded HPI | 28 (0.05%) | 48 (0.02%) |
-| Embedded signature | 1 (<0.01%) | 45 (0.02%) |
-| Embedded consult | 2 (<0.01%) | 19 (0.01%) |
+| Any marker found | 1,098 (2.1%) | 788 (0.3%) |
+| Embedded meds list | 1,019 (2.0%) | 571 (0.2%) |
+| Embedded PMH | 82 (0.2%) | 142 (<0.1%) |
+| Embedded HPI | 28 (<0.1%) | 48 (<0.1%) |
+| Embedded signature | 1 (<0.1%) | 45 (<0.1%) |
+| Embedded consult | 2 (<0.1%) | 19 (<0.1%) |
 
 The most common marker is "Medications:" or "Current Medications:" appearing on its own line within the BHC. This differs from the end-boundary pattern "Medications on Discharge:". It typically represents a medications list from an embedded admission or transfer note. The overall contamination rate is low (2.2% in MIMIC-III, 0.3% in MIMIC-IV), but the affected extractions can be substantially longer than expected because the embedded content adds thousands of characters.
 

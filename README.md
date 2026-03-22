@@ -162,7 +162,7 @@ Extraction fails (`extraction_success: false`) when no recognizable BHC header i
 The `stats` command reads extraction output (JSON or JSONL from the `extract` command) and prints a summary: success/failure counts, header and end-header distributions, BHC length statistics, and structure classification distribution.
 
 ```bash
-uv run mimic-bhc-extract stats --input bhc.jsonl
+uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl
 ```
 
 ### Discovering section headers
@@ -170,7 +170,7 @@ uv run mimic-bhc-extract stats --input bhc.jsonl
 The `discover` command scans discharge notes for lines that look like section headers and returns a frequency table. Each match is labeled with its role: "BHC header" (matched by current start patterns), "End boundary" (matched by current end-boundary patterns), or "Other" (not currently recognized as either). This helps identify rare header variants that might be worth adding to the patterns.
 
 ```bash
-# Simplify the command - replace with your path
+# Set path to MIMIC notes files - replace with your path
 export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
 
 # Omit the --notes flag to use the default (500 notes), or set to 0 to scan all notes
@@ -183,7 +183,7 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 
 ### Typical workflow: extract then inspect
 
-Run extraction with the CLI, then use `stats` to review the results:
+Run extraction with the CLI, then use `stats` to review the results (using `MIMIC3_NOTES` from [Command-line](#command-line) above):
 
 ```bash
 mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
@@ -258,7 +258,7 @@ After setup, use `uv run` to invoke the CLI within the project environment.
 Try a small sample to verify it works:
 
 ```bash
-# Simplify the command - replace with your path
+# Set path to MIMIC notes files - replace with your path
 export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
 uv run mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz --sample 100 \
     --pretty --output bhc_sample.json

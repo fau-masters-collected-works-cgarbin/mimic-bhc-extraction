@@ -159,4 +159,4 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
     --input results/bhc_mimic3_with_text.jsonl
 ```
 
-4. Update the tables in `docs/empirical-findings.md` with the new numbers. Also update the structure classification percentages in this document (currently "52% MIMIC-III, 62% MIMIC-IV, 4.4% standardized template" in the Structure classification section).
+4. Update the tables in `docs/empirical-findings.md` with the new numbers. The header distribution tables list variants with count >= 100 individually and group the rest into "Other." Also update the structure classification percentages in this document (in the Structure classification section).
