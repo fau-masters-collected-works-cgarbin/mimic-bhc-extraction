@@ -176,6 +176,39 @@ While adding more variants to the patterns can increase extraction coverage, it 
 
 See [Pattern development process](docs/extraction-design.md#pattern-development-process) for how this fits into the workflow for extending or validating patterns.
 
+### Typical workflow: extract then inspect
+
+Run extraction with the CLI, then use `stats` to review the results:
+
+```bash
+mimic-bhc-extract extract --input $MIMIC_PATH/NOTEEVENTS.csv.gz \
+    --output results/bhc_extraction_mimic-iii.jsonl --include-note-text
+
+mimic-bhc-extract stats --input results/bhc_extraction_mimic-iii.jsonl
+```
+
+### Verification and comparison scripts
+
+The `scripts/` directory contains standalone scripts for deeper quality assessment:
+
+- `scripts/verify_bhc_extraction.py`: Diagnostic checks on extraction quality. Categorizes failures and spot-checks extraction boundaries. Requires extraction results with `--include-note-text`.
+- `scripts/generate_bhc_audit.py`: Generates audit JSONL files with review flags (rare headers, short extractions, unbounded sections) for manual review.
+- `scripts/compare_bhc_extraction_kruse.py`: Compares our extraction against Kruse et al.'s (2025) minimal regex approach on the same notes. Reports coverage differences and text overlap.
+
+All scripts take `--input` (and `--output` where applicable) as explicit paths:
+
+```bash
+uv run python scripts/verify_bhc_extraction.py \
+    --input results/bhc_extraction_mimic-iii.jsonl
+
+uv run python scripts/generate_bhc_audit.py \
+    --input results/bhc_extraction_mimic-iii.jsonl \
+    --output results/bhc_audit_mimic-iii.jsonl
+
+uv run python scripts/compare_bhc_extraction_kruse.py \
+    --input results/bhc_extraction_mimic-iii.jsonl
+```
+
 ## MIMIC Format Support
 
 ### MIMIC-III
