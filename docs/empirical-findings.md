@@ -121,20 +121,20 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 
 | Header variant | Count | % |
 |----------------|------:|--:|
-| Brief Hospital Course: | 291,137 | 99.3% |
-| All other variants | 2,195 | 0.7% |
+| Brief Hospital Course: | 291,864 | 99.5% |
+| All other variants | 1,465 | 0.5% |
 
-"Brief Hospital Course:" is even more dominant in MIMIC-IV (99.3%) than in MIMIC-III (74.3%). Broader header matching is not a significant factor for MIMIC-IV: the additional variants contribute only ~2,200 extractions.
+"Brief Hospital Course:" is even more dominant in MIMIC-IV (99.5%) than in MIMIC-III (74.3%). Broader header matching is not a significant factor for MIMIC-IV: the additional variants contribute only ~1,500 extractions.
 
 ### End-boundary distribution
 
 | Boundary | Count | % |
 |----------|------:|--:|
-| Medications on Admission | 276,538 | 94.3% |
-| Discharge Medications | 15,343 | 5.2% |
+| Medications on Admission | 276,540 | 94.3% |
+| Discharge Medications | 15,342 | 5.2% |
 | Discharge Disposition | 799 | 0.3% |
 | (no boundary) | 437 | 0.1% |
-| Other | 212 | 0.1% |
+| Other | 211 | 0.1% |
 
 "Medications on Admission" is the dominant boundary in both datasets. Only 437 unbounded extractions (0.1%), compared to 3,772 (7.4%) in MIMIC-III.
 
@@ -142,15 +142,15 @@ Five `empty_section` failures were observed, where a BHC header was found but co
 
 | Statistic | Characters |
 |-----------|----------:|
-| Mean | 2,427 |
-| Median | 1,978 |
-| Q25 | 1,267 |
-| Q75 | 3,121 |
+| Mean | 2,412 |
+| Median | 1,976 |
+| Q25 | 1,266 |
+| Q75 | 3,114 |
 | Min | 1 |
-| Max | 37,171 |
-| Short (<100 chars) | 220 |
+| Max | 32,394 |
+| Short (<100 chars) | 221 |
 
-Mean BHC length is 2,427 characters, compared to 3,015 in MIMIC-III. The different extraction success rates (88.4% vs. 97.0%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens: assuming ~4 characters per token, our mean would be ~607 tokens. This is in the same range but not directly comparable without using the same tokenizer.
+Mean BHC length is 2,412 characters, compared to 3,015 in MIMIC-III. The different extraction success rates (88.4% vs. 97.0%) mean the two populations are not identical, so the length difference may partly reflect which notes were successfully extracted rather than a true difference in BHC length across datasets. For rough comparability with Aali et al.'s 564 ± 410 tokens: assuming ~4 characters per token, our mean would be ~603 tokens. This is in the same range but not directly comparable without using the same tokenizer.
 
 ### Verification
 
@@ -310,7 +310,7 @@ Key findings:
 
 **Pattern gaps identified and fixed.** "Cardiac" and "Neurologic" (without "-al") were missing from the structure classifier's sub-header patterns. Both were added. Common abbreviations CV, Pulm, GU, and the term "Cardiology" remain unmatched but have not caused misclassifications because other sub-headers in the same notes exceeded the minimum threshold.
 
-**Early binary classifier motivated the 3-category taxonomy.** An earlier version used a binary "problem-oriented"/"chronological" classifier based on organ-system sub-headers. Case review found that ~30% of notes it labeled "chronological" actually used disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to organ-system matching. This gap motivated the current 3-category classifier in `mimic_bhc/structure.py`, which detects labeled sections using structural markers (numbering, hash prefixes, standalone headers) rather than requiring organ-system keywords. The actual domain-organized rate is 53% (MIMIC-III) and 64% (MIMIC-IV).
+**Early binary classifier motivated the 3-category taxonomy.** An earlier version used a binary "problem-oriented"/"chronological" classifier based on organ-system sub-headers. Case review found that ~30% of notes it labeled "chronological" actually used disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to organ-system matching. This gap motivated the current 3-category classifier in `mimic_bhc/structure.py`, which detects labeled sections using structural markers (numbering, hash prefixes, standalone headers) rather than requiring organ-system keywords. The actual domain-organized rate is 52% (MIMIC-III) and 62% (MIMIC-IV).
 
 ## References
 

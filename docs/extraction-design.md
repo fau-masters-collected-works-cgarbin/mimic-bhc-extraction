@@ -76,8 +76,8 @@ These flags are informational. The extractor does not filter based on them. Cons
 After extraction, the batch module classifies each BHC's organizational structure into three categories:
 
 - **Narrative**: Continuous prose following the patient's clinical trajectory, with no labeled sub-sections.
-- **Domain-organized**: Divided into labeled sub-sections by clinical domain (organ system, disease, or management area). This is the majority format in both MIMIC-III (53%) and MIMIC-IV (64%).
-- **Standardized template**: Fixed template with standardized section names (e.g., NICU assessment domains). Present only in MIMIC-III (4.5%).
+- **Domain-organized**: Divided into labeled sub-sections by clinical domain (organ system, disease, or management area). This is the majority format in both MIMIC-III (52%) and MIMIC-IV (62%).
+- **Standardized template**: Fixed template with standardized section names (e.g., NICU assessment domains). Present only in MIMIC-III (4.4%).
 
 The classifier also detects structural modifiers: acute/chronic partitions, transitional care sections, and numbering conventions.
 
