@@ -16,6 +16,7 @@ Two entry points:
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING
 
 import duckdb
@@ -43,7 +44,7 @@ def classify_header_role(header: str) -> str:
 
 
 def discover_headers_in_texts(
-    texts: Iterable[str],
+    texts: Iterable[str | None],
 ) -> list[tuple[str, int, str]]:
     """Scan note texts for lines that look like section headers.
 
@@ -65,18 +66,17 @@ def discover_headers_in_texts(
     list[tuple[str, int, str]]
         ``(header_text, frequency, role)`` sorted by frequency descending.
     """
-    header_counts: dict[str, int] = {}
+    header_counts: Counter[str] = Counter()
     for text in texts:
         if not text:
             continue
         for match in _SECTION_HEADER_RE.finditer(text):
-            header = match.group(1).strip()
-            header_counts[header] = header_counts.get(header, 0) + 1
+            header_counts[match.group(1).strip()] += 1
 
     if not header_counts:
         return []
 
-    rows = sorted(header_counts.items(), key=lambda x: x[1], reverse=True)
+    rows = header_counts.most_common()
     return [(header, count, classify_header_role(header)) for header, count in rows]
 
 

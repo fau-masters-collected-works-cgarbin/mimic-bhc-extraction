@@ -74,7 +74,7 @@ class TestDiscoverHeadersInTexts:
         assert counts == sorted(counts, reverse=True)
 
     def test_none_and_empty_texts_skipped(self) -> None:
-        texts = ["", None, "Brief Hospital Course:\nText"]  # type: ignore[list-item]
+        texts = ["", None, "Brief Hospital Course:\nText"]
         result = discover_headers_in_texts(texts)
         assert len(result) >= 1
 

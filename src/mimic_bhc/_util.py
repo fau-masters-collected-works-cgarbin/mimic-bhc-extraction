@@ -42,7 +42,7 @@ def detect_mimic_format(csv_path: str) -> str:
         with gzip.open(csv_path, "rt") as f:
             header = f.readline().strip()
     else:
-        with open(csv_path) as f:  # noqa: PTH123
+        with open(csv_path, encoding="utf-8") as f:  # noqa: PTH123
             header = f.readline().strip()
 
     return "mimic3" if "CATEGORY" in header else "mimic4"
