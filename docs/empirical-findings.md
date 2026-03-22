@@ -247,9 +247,9 @@ The regex-based extraction captures everything between the BHC header and the ne
 
 Some discharge summaries contain entire sub-documents pasted into the BHC section: admission notes, consult notes, procedure notes, or transfer summaries. Clinicians copy these into the discharge summary for reference, and the pasted content sits between the BHC header and the next section boundary without any intervening top-level header to stop extraction.
 
-A representative example from MIMIC-IV (hadm_id REDACTED): the actual hospital course narrative occupies the first ~82% of the extracted text. The remaining ~18% consists of a signed consult note, an admission note (with its own HPI, Past Medical History, Family History, Social History, and Review of Systems sections), and additional consult entries. None of these embedded sections use headers from the end-boundary allowlist, so the extractor captures them as part of the BHC.
+A representative example from MIMIC-IV: the actual hospital course narrative occupies the first ~82% of the extracted text. The remaining ~18% consists of a signed consult note, an admission note (with its own HPI, Past Medical History, Family History, Social History, and Review of Systems sections), and additional consult entries. None of these embedded sections use headers from the end-boundary allowlist, so the extractor captures them as part of the BHC.
 
-In MIMIC-III (hadm_id REDACTED), a similar pattern appears: the BHC contains a transfer summary with its own Past Medical History, Allergies, and Medications on Transfer sections embedded mid-narrative. The clinician documented the patient's transfer from an outside hospital by pasting the transfer note directly into the hospital course.
+A similar pattern appears in MIMIC-III: the BHC contains a transfer summary with its own Past Medical History, Allergies, and Medications on Transfer sections embedded mid-narrative. The clinician documented the patient's transfer from an outside hospital by pasting the transfer note directly into the hospital course.
 
 ### Prevalence
 
