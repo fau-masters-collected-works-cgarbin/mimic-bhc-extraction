@@ -3,28 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from typing import TYPE_CHECKING
 
 from mimic_bhc.batch import extract_from_file
 from mimic_bhc.discovery import discover_headers_from_file
-
-if TYPE_CHECKING:
-    from mimic_bhc.model import BHCResult
-
-
-def _write_results(results: list[BHCResult], output_path: str, *, pretty: bool) -> None:
-    """Write extraction results to a JSON/JSONL file."""
-    dicts = [r.to_dict() for r in results]
-    with open(output_path, "w") as f:  # noqa: PTH123
-        if pretty:
-            json.dump(dicts, f, indent=2)
-            f.write("\n")
-        else:
-            for d in dicts:
-                json.dump(d, f)
-                f.write("\n")
+from mimic_bhc.io import write_results
 
 
 def _run_extract(args: argparse.Namespace) -> int:
@@ -35,7 +18,7 @@ def _run_extract(args: argparse.Namespace) -> int:
         sample_size=args.sample,
         include_note_text=args.include_note_text,
     )
-    _write_results(results, args.output, pretty=args.pretty)
+    write_results(results, args.output, pretty=args.pretty)
     print(f"BHC extraction complete. Output written to {args.output}")
     return 0
 
@@ -66,29 +49,15 @@ def _run_discover(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_results(input_path: str) -> list[dict]:
-    """Load extraction results from a JSON or JSONL file."""
-    with open(input_path) as f:  # noqa: PTH123
-        first_char = f.read(1)
-        if not first_char:
-            return []
-        f.seek(0)
-        if first_char == "[":
-            return json.load(f)
-        return [json.loads(line) for line in f if line.strip()]
-
-
 def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901
     """Run the stats subcommand."""
-    from mimic_bhc.model import BHCResult
+    from mimic_bhc.io import load_results
     from mimic_bhc.stats import compute_bhc_stats
 
-    records = _load_results(args.input)
-    if not records:
+    results = load_results(args.input)
+    if not results:
         print("No records found.")
         return 0
-
-    results = [BHCResult.from_dict(rec) for rec in records]
     stats = compute_bhc_stats(results)
 
     # Summary

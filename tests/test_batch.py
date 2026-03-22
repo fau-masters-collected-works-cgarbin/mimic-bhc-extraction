@@ -145,12 +145,12 @@ class TestBatchEnrichment:
 
     def test_pretty_print_produces_valid_json_array(self, mimic3_noteevents_gz, tmp_path):
         """CLI write with pretty=True should produce a valid JSON array."""
-        from mimic_bhc.cli import _write_results
+        from mimic_bhc.io import write_results
 
         results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
 
         output_path = tmp_path / "output.json"
-        _write_results(results, str(output_path), pretty=True)
+        write_results(results, str(output_path), pretty=True)
 
         with open(output_path) as f:
             content = f.read()

@@ -3,7 +3,7 @@
 import json
 from argparse import Namespace
 
-from mimic_bhc.cli import _load_results, _run_stats
+from mimic_bhc.cli import _run_stats
 from mimic_bhc.model import BHCResult
 from mimic_bhc.structure import StructureResult
 
@@ -55,34 +55,6 @@ def _make_record(
         end_header=end_header,
         category=category,
     ).to_dict()
-
-
-# ---------------------------------------------------------------------------
-# _load_results
-# ---------------------------------------------------------------------------
-
-
-class TestLoadResults:
-    def test_load_jsonl(self, tmp_path):
-        path = tmp_path / "results.jsonl"
-        records = [_make_record(1), _make_record(2)]
-        path.write_text("\n".join(json.dumps(r) for r in records))
-        loaded = _load_results(str(path))
-        assert len(loaded) == 2
-        assert loaded[0]["hadm_id"] == 1
-
-    def test_load_json_array(self, tmp_path):
-        path = tmp_path / "results.json"
-        records = [_make_record(1), _make_record(2)]
-        path.write_text(json.dumps(records, indent=2))
-        loaded = _load_results(str(path))
-        assert len(loaded) == 2
-
-    def test_load_empty_file(self, tmp_path):
-        path = tmp_path / "empty.jsonl"
-        path.write_text("")
-        loaded = _load_results(str(path))
-        assert loaded == []
 
 
 # ---------------------------------------------------------------------------
