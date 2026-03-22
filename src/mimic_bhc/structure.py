@@ -221,7 +221,10 @@ def _detect_numbering_convention(bhc_text: str) -> str:
     standalone_count = len(_STANDALONE_HEADER_RE.findall(bhc_text))
     # Only count standalone if no other markers are dominant
     prefix_total = sum(counts.values())
-    if standalone_count >= _MIN_DOMAIN_SECTIONS and prefix_total < _MIN_DOMAIN_SECTIONS:
+    has_standalone_headers = (
+        standalone_count >= _MIN_DOMAIN_SECTIONS and prefix_total < _MIN_DOMAIN_SECTIONS
+    )
+    if has_standalone_headers:
         return "standalone"
 
     # Return the convention with the most matches, if any reach threshold
@@ -302,7 +305,8 @@ def classify_bhc_structure(bhc_text: str) -> StructureResult:
     # (Sensory or Psychosocial) to avoid false positives from non-NICU
     # organ-system problem lists.
     nicu_count = _count_nicu_domains(bhc_text)
-    if nicu_count >= _MIN_NICU_DOMAINS and _has_nicu_specific_domain(bhc_text):
+    is_nicu_template = nicu_count >= _MIN_NICU_DOMAINS and _has_nicu_specific_domain(bhc_text)
+    if is_nicu_template:
         return StructureResult(
             category=CATEGORY_STANDARDIZED_TEMPLATE,
             nicu_domain_count=nicu_count,
