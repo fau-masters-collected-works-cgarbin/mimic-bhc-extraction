@@ -3,7 +3,7 @@
 import pytest
 
 from mimic_bhc.model import BHCResult
-from mimic_bhc.stats import compute_bhc_stats
+from mimic_bhc.stats import MIN_BHC_LENGTH, compute_bhc_stats
 from mimic_bhc.structure import StructureResult
 
 
@@ -77,9 +77,9 @@ class TestComputeBhcStats:
 
     def test_short_extractions_threshold(self):
         results = [
-            _make_bhc_result(bhc_text="x" * 50),
-            _make_bhc_result(bhc_text="x" * 100),
-            _make_bhc_result(bhc_text="x" * 200),
+            _make_bhc_result(bhc_text="x" * (MIN_BHC_LENGTH - 1)),
+            _make_bhc_result(bhc_text="x" * MIN_BHC_LENGTH),
+            _make_bhc_result(bhc_text="x" * (MIN_BHC_LENGTH + 1)),
         ]
 
         stats = compute_bhc_stats(results)

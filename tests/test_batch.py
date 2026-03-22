@@ -7,6 +7,7 @@ import pytest
 
 from mimic_bhc.batch import _build_quality_flags, extract_from_file
 from mimic_bhc.model import BHCResult
+from mimic_bhc.stats import MIN_BHC_LENGTH
 
 
 @pytest.fixture
@@ -290,7 +291,9 @@ class TestNoteTextAndAddendumCount:
 
 
 class TestQualityFlags:
-    def _make_result(self, *, bhc_text="x" * 200, end_header="Medications on Discharge"):
+    def _make_result(
+        self, *, bhc_text="x" * (MIN_BHC_LENGTH + 1), end_header="Medications on Discharge"
+    ):
         return BHCResult(
             extraction_success=True,
             bhc_text=bhc_text,
