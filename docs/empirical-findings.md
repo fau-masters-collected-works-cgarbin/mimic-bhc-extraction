@@ -241,7 +241,33 @@ All are genuine BHC sections with real clinical narrative (not false positives).
 
 ## Known Limitations
 
-The regex-based extraction captures everything between the BHC header and the next top-level section boundary. This works well when clinicians follow the standard discharge summary template, but some notes contain material between those two markers that is not part of the hospital course narrative. The extractor cannot distinguish this embedded content from legitimate BHC text because it lacks the headers that would trigger a boundary match.
+The regex-based extraction finds the first BHC header and captures everything from there to the next top-level section boundary. This works well when clinicians follow the standard discharge summary template, but two classes of note structure can produce incorrect extractions: duplicate BHC headers (where the first match is not the canonical section) and embedded sub-documents (where non-BHC content sits between the header and the end boundary without triggering a boundary match).
+
+### Duplicate BHC headers within a single note
+
+Some discharge notes contain the phrase "Brief Hospital Course" more than once. We scanned all 59,652 MIMIC-III discharge summaries (excluding ISERROR) and found 299 notes (0.5%) with two or more occurrences. These fall into three distinct patterns:
+
+| Pattern | Count | Description |
+|---------|------:|-------------|
+| Back-to-back duplicates | 110 | Two headers within ~100 characters of each other, typically a mixed-case variant immediately followed by an all-caps variant (e.g., `Brief Hospital Course:` then `BRIEF HOSPITAL COURSE:`). The content after both is identical. |
+| Inline references | 108 | Mid-sentence uses of the phrase ("see brief hospital course", "his brief hospital course was complicated by..."), not section headers. |
+| True structural duplicates | 81 | Two separate BHC sections at different positions in the note, typically hundreds or thousands of characters apart. |
+
+The true structural duplicates are the only category that affects extraction. The extractor uses a first-match strategy (`extract.py`): it tries each header pattern in priority order and takes the first match. When a note has two structurally separate BHC headers, first-match captures everything from the earlier header to the end boundary, which may include non-BHC sections (Past Medical History, Physical Exam, Pertinent Results) that fall between the two headers.
+
+Of the 81 true structural duplicates, 7 produce contaminated extractions where the first-match BHC contains non-BHC sections. In a representative case, a 23-day admission had a preliminary BHC summary between History of Present Illness and Past Medical History, while the canonical BHC with a structured problem list appeared later in the standard position after Pertinent Results. The extractor captures from the first header, including Past Medical History, Social History, Family History, Physical Exam, and Pertinent Results in the extracted BHC. The remaining 74 true structural duplicates produce clean first-match extractions without non-BHC section contamination.
+
+These 7 affected extractions are not caught by existing quality flags: they are not unusually short, not unbounded, and have no ISERROR marker. They appear as successful extractions with plausible (though inflated) character counts. Some of them overlap with the embedded sub-document markers reported below, but the root cause is different: a misplaced header rather than pasted content.
+
+This analysis covers only the "Brief Hospital Course" header (74.3% of successful MIMIC-III extractions); other header variants were not analyzed for duplication.
+
+#### Why we keep the first-match strategy
+
+Switching to a last-match strategy would fix 6 of the 7 affected cases (one has an unusual structure where neither match is clean). However, it would also change the extraction for the 74 clean structural duplicates, producing shorter BHCs that capture only the content after the final header. For the remaining ~59,350 single-header notes, first and last match are identical.
+
+A more targeted approach would use first match by default and fall back to last match when the extraction contains non-BHC section headers. This would fix the 7 bad cases without affecting the rest, but adds detection logic that is fragile and hard to validate for a problem that affects 0.01% of extractions (7 out of 51,131).
+
+The pragmatic choice is to document the limitation rather than risk degrading the 99.99% of extractions that are correct.
 
 ### Embedded sub-documents
 
