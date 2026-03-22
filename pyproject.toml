@@ -70,6 +70,17 @@ ignore = [
     "PLC0415", # runtime pandas import in functions that need it (kept out of top-level)
     "PLR0913", # _process_note receives pre-computed fields from caller
 ]
+"src/mimic_bhc/audit.py" = [
+    "PLR0913", # _assign_flags receives pre-computed context from build_audit_entries
+]
+"scripts/**/*.py" = [
+    "INP001",  # scripts are standalone, not packages
+    "T201",    # print is the output mechanism
+    "ANN",     # annotations optional in scripts
+    "PLC0415", # deferred imports acceptable in scripts
+    "PLR0915", # long functions acceptable in diagnostic scripts
+    "C901",    # complexity acceptable in diagnostic scripts
+]
 
 [tool.ruff.format]
 quote-style = "double"
