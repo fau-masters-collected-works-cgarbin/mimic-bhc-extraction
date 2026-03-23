@@ -155,7 +155,7 @@ Mean BHC length is 2,412 characters, compared to 3,015 in MIMIC-III. The differe
 
 ### Verification
 
-Manual inspection of 10 randomly selected successful extractions confirmed correct boundary detection. No truncation or over-extraction was observed.
+Same methodology as MIMIC-III verification above (10 randomly selected successful extractions). No truncation or over-extraction was observed.
 
 ## Structure classification distribution
 
