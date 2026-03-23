@@ -87,7 +87,7 @@ After extraction, the batch module classifies each BHC's organizational structur
 
 ### Three-category taxonomy
 
-Open-coding analysis of 50 BHC sections (30 MIMIC-III, 20 MIMIC-IV) produced a three-category taxonomy, validated through human review (42/50 cases, 100% agreement) and applied to both full datasets via the rule-based classifier. See [Empirical findings](empirical-findings.md#structure-classification-distribution) for distribution rates.
+Open-coding analysis of 50 BHC sections (30 MIMIC-III, 20 MIMIC-IV) produced a three-category taxonomy, validated through human review (42/50 cases, 100% agreement) and applied to both full datasets via the rule-based classifier. See [Empirical Findings](empirical-findings.md#structure-classification-distribution) for distribution rates.
 
 **Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events are connected by temporal sequence rather than grouped by clinical domain. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD numbering are typical examples.
 
@@ -106,7 +106,7 @@ The classifier also detects four modifiers that capture within-category variatio
 - **Acute/chronic partition**: Explicit ACUTE ISSUES / CHRONIC ISSUES headers.
 - **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
 
-The extraction end-boundary allowlist intentionally excludes "Transitional Issues," "Pending Labs," and similar handoff-oriented headers. Clinically, these sections are discharge planning rather than hospital course narrative. However, clinicians type this content into the BHC text field in the EHR, so it appears between the BHC header and the next top-level boundary. The MIMIC-IV-Ext-BHC dataset (Aali et al., 2024) handles this the same way. The structural analysis tracks this content with the Transitional Issues modifier.
+The Transitional Issues modifier tracks the handoff content that the end-boundary allowlist intentionally passes through (see [End-boundary patterns](#end-boundary-patterns)).
 
 ### Provenance of the format distinction
 
@@ -114,17 +114,15 @@ The domain-organized format traces its lineage to the problem-oriented medical r
 
 Medical education literature recognizes what it calls "narrative" and "problem-based" approaches as distinct organizational strategies for the hospital course section. Weetman et al. (2025) describe both in a primer for junior physicians, recommending that clinicians match the format to case complexity. Dean et al. (2016) report an institutional template that formally adopted a "problem-based hospital course" format, integrating the diagnosis list into the course narrative rather than keeping it as a separate section.
 
-Despite this clinical recognition, no published work in NLP or clinical informatics has formalized the distinction with a validated taxonomy. Published work on BHC summarization (Adams et al., 2021; Hartman et al., 2022; Hartman et al., 2023; Xu et al., 2024) treats the BHC as an atomic text block without distinguishing its internal structure. Work on clinical note section detection (Denny et al., 2009; Pomares-Quimbaya et al., 2019) operates at the top-level section granularity (History of Present Illness, Hospital Course, Medications) and does not study sub-headers within the BHC itself.
+Published work on BHC summarization (Adams et al., 2021; Hartman et al., 2022; Hartman et al., 2023; Xu et al., 2024) treats the BHC as an atomic text block without distinguishing its internal structure. Work on clinical note section detection (Denny et al., 2009; Pomares-Quimbaya et al., 2019) operates at the top-level section granularity (History of Present Illness, Hospital Course, Medications) and does not study sub-headers within the BHC itself.
 
 ### Why format matters for downstream tasks
 
-The format distinction is significant for BHC generation, the downstream task this extraction supports. A model generating a narrative BHC needs to produce continuous prose. A model generating a domain-organized BHC needs to organize information by clinical problem, create appropriate sub-headers, and summarize each system separately. These are structurally different outputs from the same input data, with three practical consequences:
+The format distinction is significant for BHC generation, the downstream task this extraction supports. A model generating a narrative BHC needs to produce continuous prose. A model generating a domain-organized BHC needs to organize information by clinical problem, create appropriate sub-headers, and summarize each system separately. These are structurally different outputs from the same input data, with two practical consequences:
 
 1. **Evaluation.** Metrics like ROUGE and BERTScore assume a single reference text. A narrative and a domain-organized BHC for the same admission could both be clinically correct yet score poorly against each other because of the structural difference. Domain-organized BHCs are roughly twice as long as narratives, creating additional length mismatch. The format choice is a legitimate stylistic variation, not an error, and evaluation should be stratified by format category.
 
 2. **Training signal.** If training or fine-tuning on MIMIC BHCs, the model sees both formats mixed together with no label distinguishing them. This could lead to inconsistent output format, or the model might default to the majority format (domain-organized). Including the target format category in the generation prompt tells the model which organizational structure to follow.
-
-3. **Task asymmetry.** The Daily Assessment and Plan task (the secondary clinical task) is less affected because A&P notes are inherently problem-oriented, always organized by active problem. The format ambiguity is specific to BHC.
 
 ## Format auto-detection
 
@@ -150,7 +148,7 @@ It also confirmed which discharge-summary sections reliably follow the BHC and w
 
 We evaluated each candidate on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as standalone headers but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
 
-**Step 4: Comparative validation.** Running the extractor on the full MIMIC-III corpus produced a higher extraction rate than published tools, confirming the broader pattern coverage. A head-to-head comparison with an alternative extractor (Kruse et al.) showed agreement on most cases, with our broader patterns capturing thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical findings](empirical-findings.md) for the full comparison.
+**Step 4: Comparative validation.** Running the extractor on the full MIMIC-III corpus produced a higher extraction rate than published tools, confirming the broader pattern coverage. A head-to-head comparison with an alternative extractor (Kruse et al.) showed agreement on most cases, with our broader patterns capturing thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical Findings](empirical-findings.md) for the full comparison.
 
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
@@ -177,7 +175,7 @@ Run `uv run pytest tests/test_doc_sync.py -v` to see which claims are covered. T
 
 ### Data-derived metrics (manual)
 
-Extraction success rates, header distributions, length statistics, structure classification percentages, and tool comparisons in [Empirical findings](empirical-findings.md) come from running the pipeline on MIMIC-III and MIMIC-IV datasets. These datasets are not included in this repository (they require a PhysioNet credentialed access agreement).
+Extraction success rates, header distributions, length statistics, structure classification percentages, and tool comparisons in [Empirical Findings](empirical-findings.md) come from running the pipeline on MIMIC-III and MIMIC-IV datasets. These datasets are not included in this repository (they require a PhysioNet credentialed access agreement).
 
 To regenerate these metrics after code changes that could affect extraction results (new patterns, changed boundary logic, modified structure classification):
 

@@ -169,6 +169,8 @@ Distribution of the three-category taxonomy (see [Structure classification](extr
 | Domain-organized | 52% | 62% |
 | Standardized template | 4.4% | 0% |
 
+Percentages are rounded and may not sum to exactly 100%.
+
 Domain-organized is the majority format in both datasets. Standardized templates are exclusively NICU discharge summaries and appear only in MIMIC-III (no neonatal admissions in MIMIC-IV).
 
 An earlier binary classifier based on organ-system sub-headers reported domain-organized rates of 0.7% (MIMIC-III) and 0.4% (MIMIC-IV). These were severe undercounts because the classifier only detected organ-system sub-headers, missing disease-specific problem lists, numbered entries, and other structural markers. The three-category taxonomy replaced the binary classification for all analysis purposes.
