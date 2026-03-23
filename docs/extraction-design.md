@@ -1,6 +1,12 @@
 # Extraction Design
 
-How the BHC extractor works: the algorithm, its assumptions, and the decisions behind them.
+How the Brief Hospital Course (BHC) extractor works: the algorithm, its assumptions, and the decisions behind them.
+
+## What is the Brief Hospital Course
+
+A discharge summary is a clinical document written when a patient leaves the hospital. It consolidates the entire admission into a single narrative that the next provider (primary care physician, rehabilitation facility, specialist) can use to continue care. Discharge summaries in MIMIC follow a semi-structured format with named sections, though the exact headers and ordering vary across institutions and individual clinicians.
+
+The Brief Hospital Course (BHC) is typically the longest and most clinically dense section of the discharge summary. It narrates what happened during the hospitalization: why the patient was admitted, what diagnoses were made, what treatments were given, how the patient responded, and what the clinical trajectory looked like from admission to discharge. Clinicians write the BHC at the time of discharge, synthesizing information from daily progress notes, lab results, imaging reports, procedure notes, and medication records. The BHC is not a simple concatenation of these sources. It requires clinical judgment to select what matters, organize it coherently, and frame it for the receiving provider. In summarization research, the BHC is the target output, the section a model would generate given the rest of the clinical record as input (Adams et al., 2021; Aali et al., 2024).
 
 ## BHCResult as the single data structure
 
@@ -77,15 +83,48 @@ These flags are informational. The extractor does not filter based on them. Cons
 
 ## Structure classification
 
-After extraction, the batch module classifies each BHC's organizational structure into three categories:
+After extraction, the batch module classifies each BHC's organizational structure into three categories. Classification is implemented in `mimic_bhc/structure.py` and runs independently of the extraction step (it takes the extracted BHC text as input, not the original note).
 
-- **Narrative**: Continuous prose following the patient's clinical trajectory, with no labeled sub-sections.
-- **Domain-organized**: Divided into labeled sub-sections by clinical domain (organ system, disease, or management area). This is the majority format in both MIMIC-III (52%) and MIMIC-IV (62%).
-- **Standardized template**: Fixed template with standardized section names (e.g., NICU assessment domains). Present only in MIMIC-III (4.4%).
+### Three-category taxonomy
 
-The classifier also detects structural modifiers: acute/chronic partitions, transitional care sections, and numbering conventions.
+Open-coding analysis of 50 BHC sections (30 MIMIC-III, 20 MIMIC-IV) produced a three-category taxonomy, validated through human review (42/50 cases, 100% agreement) and applied to both full datasets via the rule-based classifier. See [Empirical findings](empirical-findings.md#structure-classification-distribution) for distribution rates.
 
-Classification is implemented in `mimic_bhc/structure.py` and runs independently of the extraction step (it takes the extracted BHC text as input, not the original note).
+**Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events are connected by temporal sequence rather than grouped by clinical domain. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD numbering are typical examples.
+
+**Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as # prefixed headers, numbered entries, or standalone headers on their own lines. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
+
+**Standardized template.** The BHC follows a fixed template with standardized section names applied to every patient regardless of clinical presentation (e.g., NICU assessment domains: Respiratory, Cardiovascular, FEN, GI, Hematology, ID, Neurology, Sensory, Psychosocial). Present only in MIMIC-III (no neonatal admissions in MIMIC-IV).
+
+The classifier detects all formats identically. Internal sub-headers (whether organ-system names, disease-specific labels, or template domains) sit inside the captured text and do not interfere with boundary detection.
+
+### Structural modifiers
+
+The classifier also detects four modifiers that capture within-category variation relevant to generation:
+
+- **Mixed**: Combines elements of more than one format.
+- **Numbering convention**: # vs 1. vs standalone.
+- **Acute/chronic partition**: Explicit ACUTE ISSUES / CHRONIC ISSUES headers.
+- **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
+
+The extraction end-boundary allowlist intentionally excludes "Transitional Issues," "Pending Labs," and similar handoff-oriented headers. Clinically, these sections are discharge planning rather than hospital course narrative. However, clinicians type this content into the BHC text field in the EHR, so it appears between the BHC header and the next top-level boundary. The MIMIC-IV-Ext-BHC dataset (Aali et al., 2024) handles this the same way. The structural analysis tracks this content with the Transitional Issues modifier.
+
+### Provenance of the format distinction
+
+The domain-organized format traces its lineage to the problem-oriented medical record (POMR) introduced by Weed (1968), which organized clinical documentation around a numbered problem list with structured SOAP (Subjective, Objective, Assessment, Plan) entries for each problem. The POMR became one of the most influential ideas in clinical documentation and remains the basis for daily progress notes in most hospitals (Wright et al., 2019). When clinicians write a domain-organized BHC, they are applying the same organizational principle, grouping by clinical problem rather than following the temporal sequence of events.
+
+Medical education literature recognizes what it calls "narrative" and "problem-based" approaches as distinct organizational strategies for the hospital course section. Weetman et al. (2025) describe both in a primer for junior physicians, recommending that clinicians match the format to case complexity. Dean et al. (2016) report an institutional template that formally adopted a "problem-based hospital course" format, integrating the diagnosis list into the course narrative rather than keeping it as a separate section.
+
+Despite this clinical recognition, no published work in NLP or clinical informatics has formalized the distinction with a validated taxonomy. Published work on BHC summarization (Adams et al., 2021; Hartman et al., 2022; Hartman et al., 2023; Xu et al., 2024) treats the BHC as an atomic text block without distinguishing its internal structure. Work on clinical note section detection (Denny et al., 2009; Pomares-Quimbaya et al., 2019) operates at the top-level section granularity (History of Present Illness, Hospital Course, Medications) and does not study sub-headers within the BHC itself.
+
+### Why format matters for downstream tasks
+
+The format distinction is significant for BHC generation, the downstream task this extraction supports. A model generating a narrative BHC needs to produce continuous prose. A model generating a domain-organized BHC needs to organize information by clinical problem, create appropriate sub-headers, and summarize each system separately. These are structurally different outputs from the same input data, with three practical consequences:
+
+1. **Evaluation.** Metrics like ROUGE and BERTScore assume a single reference text. A narrative and a domain-organized BHC for the same admission could both be clinically correct yet score poorly against each other because of the structural difference. Domain-organized BHCs are roughly twice as long as narratives, creating additional length mismatch. The format choice is a legitimate stylistic variation, not an error, and evaluation should be stratified by format category.
+
+2. **Training signal.** If training or fine-tuning on MIMIC BHCs, the model sees both formats mixed together with no label distinguishing them. This could lead to inconsistent output format, or the model might default to the majority format (domain-organized). Including the target format category in the generation prompt tells the model which organizational structure to follow.
+
+3. **Task asymmetry.** The Daily Assessment and Plan task (the secondary clinical task) is less affected because A&P notes are inherently problem-oriented, always organized by active problem. The format ambiguity is specific to BHC.
 
 ## Format auto-detection
 

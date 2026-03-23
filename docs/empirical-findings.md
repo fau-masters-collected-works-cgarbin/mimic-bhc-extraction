@@ -84,7 +84,7 @@ The top header variants (count >= 100), from 51,131 successful extractions:
 
 18 extractions are shorter than the 100-character threshold. Lengths are reported in characters, not tokens, to avoid baking in a specific tokenizer choice at the extraction stage.
 
-These aggregate statistics mix narrative and domain-organized BHCs, which differ in length by roughly 2x. A separate structural analysis showed median lengths of 1,669 chars (narrative) vs 3,241 chars (domain-organized) in MIMIC-III.
+These aggregate statistics mix narrative and domain-organized BHCs, which differ in length by roughly 2x. See [Structure classification distribution](#structure-classification-distribution) for the format-specific breakdown.
 
 ### Verification
 
@@ -156,6 +156,46 @@ Mean BHC length is 2,412 characters, compared to 3,015 in MIMIC-III. The differe
 ### Verification
 
 Manual inspection of 10 randomly selected successful extractions confirmed correct boundary detection. No truncation or over-extraction was observed.
+
+## Structure classification distribution
+
+Distribution of the three-category taxonomy (see [Structure classification](extraction-design.md#structure-classification) for definitions and design rationale) across both datasets.
+
+### Category prevalence
+
+| Category | MIMIC-III (51,131) | MIMIC-IV (293,329) |
+|----------|-------------------:|-------------------:|
+| Narrative | 43% | 36% |
+| Domain-organized | 52% | 62% |
+| Standardized template | 4.4% | 0% |
+
+Domain-organized is the majority format in both datasets. Standardized templates are exclusively NICU discharge summaries and appear only in MIMIC-III (no neonatal admissions in MIMIC-IV).
+
+An earlier binary classifier based on organ-system sub-headers reported domain-organized rates of 0.7% (MIMIC-III) and 0.4% (MIMIC-IV). These were severe undercounts because the classifier only detected organ-system sub-headers, missing disease-specific problem lists, numbered entries, and other structural markers. The three-category taxonomy replaced the binary classification for all analysis purposes.
+
+### Service as predictor
+
+Service is the strongest predictor of format (Cramer's V = 0.71 in both datasets) but does not fully explain it. Medical services (MED, CMED, OMED) use the domain-organized format at 80-92% rates. Surgical services (CSURG, ORTHO, GYN) produce narratives at 80-96% rates. Within dominant services, 10-20% of cases use the minority format, reflecting individual clinician preferences.
+
+### Modifier rates
+
+| Modifier | MIMIC-III | MIMIC-IV |
+|----------|----------:|----------:|
+| Acute/chronic partition | — | 15% |
+| Transitional Issues section | — | 31% |
+
+Both modifiers are predominantly a MIMIC-IV phenomenon, consistent with more recent clinical practice and structured EHR templates.
+
+### BHC length by format
+
+Narrative and domain-organized BHCs differ in length by roughly 2x in both datasets.
+
+| Format | MIMIC-III median (chars) | MIMIC-IV median (chars) |
+|--------|-------------------------:|------------------------:|
+| Narrative | 1,669 | 1,305 |
+| Domain-organized | 3,241 | 2,620 |
+
+This length difference has implications for evaluation metrics that are sensitive to length mismatch. See [Why format matters for downstream tasks](extraction-design.md#why-format-matters-for-downstream-tasks) in the design document.
 
 ## Comparison with StanfordMIMI/clin-bhc-summ
 
@@ -311,12 +351,21 @@ Key findings:
 
 **Pattern gaps identified and fixed.** "Cardiac" and "Neurologic" (without "-al") were missing from the structure classifier's sub-header patterns. Both were added. Common abbreviations CV, Pulm, GU, and the term "Cardiology" remain unmatched but have not caused misclassifications because other sub-headers in the same notes exceeded the minimum threshold.
 
-**Early binary classifier motivated the 3-category taxonomy.** An earlier version used a binary "problem-oriented"/"chronological" classifier based on organ-system sub-headers. Case review found that ~30% of notes it labeled "chronological" actually used disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to organ-system matching. This gap motivated the current 3-category classifier in `mimic_bhc/structure.py`, which detects labeled sections using structural markers (numbering, hash prefixes, standalone headers) rather than requiring organ-system keywords. The actual domain-organized rate is 52% (MIMIC-III) and 62% (MIMIC-IV).
+**Early binary classifier motivated the 3-category taxonomy.** An earlier version used a binary "problem-oriented"/"chronological" classifier based on organ-system sub-headers. Case review found that ~30% of notes it labeled "chronological" actually used disease-specific problem headers (`# Upper GI bleed`, `# NSTEMI`, `1) CV:`) that are structurally domain-organized but invisible to organ-system matching. This gap motivated the current 3-category classifier in `mimic_bhc/structure.py`, which detects labeled sections using structural markers (numbering, hash prefixes, standalone headers) rather than requiring organ-system keywords. See [Structure classification distribution](#structure-classification-distribution) for the validated rates.
 
 ## References
 
-- Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021.
 - Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2024). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA, 32(3), 470-479. doi:10.1093/jamia/ocae312.
+- Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021.
 - Alsentzer, E., & Kim, A. (2018). Extractive Summarization of EHR Discharge Notes. NeurIPS ML4H Workshop.
+- Dean, S. M., Gilmore-Bykovskyi, A., Gentry, A., & Pauls, H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11.
+- Denny, J. C., Spickard, A., Johnson, K. B., Peterson, N. B., Peterson, J. F., & Miller, R. A. (2009). Evaluation of a method to identify and categorize section headers in clinical documents. JAMIA, 16(6), 806-815.
+- Hartman, E., et al. (2022). Customization scenarios for de-identification of clinical notes. BMC Medical Informatics and Decision Making, 22, 302.
+- Hartman, E., et al. (2023). Generating medically-accurate summaries of patient-provider dialogue: A multi-stage approach using large language models. BioNLP Workshop.
 - Kruse, B., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. arXiv:2501.18724.
 - Landes, J., et al. (2022). MedSecId: Medical Section Identification. COLING 2022.
+- Pomares-Quimbaya, A., et al. (2019). Current approaches to identify sections within clinical narratives from electronic health records: a systematic review. BMC Medical Research Methodology, 19, 155.
+- Weed, L. L. (1968). Medical records that guide and teach. New England Journal of Medicine, 278(11), 593-600.
+- Weetman, K., Spencer, R., Greenhalgh, T., & Dale, J. (2025). Writing better hospital discharge summaries: a primer for junior doctors. BMJ, 388, e079918.
+- Wright, A., Sittig, D. F., McGowan, J., Ash, J. S., & Weed, L. L. (2019). Bringing science to medicine: an interview with Larry Weed, inventor of the problem-oriented medical record. JAMIA, 21(6), 964-968.
+- Xu, S., et al. (2024). Overview of the BioNLP 2024 Shared Task on Streamlining Discharge Documentation. BioNLP Workshop @ ACL 2024.
