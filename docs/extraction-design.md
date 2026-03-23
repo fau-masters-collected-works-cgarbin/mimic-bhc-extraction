@@ -51,7 +51,11 @@ All patterns are anchored to the start of the line (`^` with `re.MULTILINE`) to 
 
 **Medium confidence** (legitimate sections, but words like "Facility" or "Attending" could appear within a BHC narrative): Facility, Completed by, Attending. The start-of-line anchor mitigates false positives.
 
-The boundary list intentionally excludes BHC-internal sub-headers like "Cardiovascular:", "Renal:", or "Infectious Disease:". These appear inside domain-organized BHCs and must not terminate extraction. This is the key design tension: the boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
+The boundary list intentionally excludes BHC-internal sub-headers like "Cardiovascular:", "Renal:", or "Infectious Disease:". These appear inside domain-organized BHCs and must not terminate extraction.
+
+It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, these are discharge planning rather than hospital course narrative, but clinicians type this content into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The MIMIC-IV-Ext-BHC dataset (Aali et al., 2024) treats these the same way.
+
+This is the key design tension: the boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
 
 ## Addendum deduplication
 
@@ -112,6 +116,15 @@ We evaluated each candidate on the full corpus for extraction yield and false-po
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
 This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. The `discover` CLI command is the primary tool for step 3. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
+
+## Why regex, not existing tools
+
+Two open-source tools extract sections from MIMIC clinical notes:
+
+- **plandes/mimicsid** (Landes et al., COLING 2022): Full ML pipeline with trained section classifiers, SpaCy dependency, and model downloads. Designed for general section identification across all note types, not lightweight single-section extraction.
+- **StanfordMIMI/clin-bhc-summ** (Aali et al., JAMIA 2024): Evaluation framework for clinical summarization. Extracts BHC as part of a larger pipeline but is not a reusable extraction library. See the [detailed comparison](empirical-findings.md#comparison-with-stanfordmimiclin-bhc-summ) in empirical findings.
+
+We use a regex-based approach instead for two reasons. First, we need structured extraction metadata (success/failure reason, matched header variant, matched end boundary) to understand extraction reliability systematically, not just the extracted text. Neither tool provides this. Second, a simple regex extractor handles the task reliably (97.0% MIMIC-III, 88.4% MIMIC-IV), so pulling in an ML pipeline would add unnecessary complexity. We validate our extraction rates against published numbers from both tools as a sanity check.
 
 ## Updating documentation metrics
 

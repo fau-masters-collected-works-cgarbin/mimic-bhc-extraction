@@ -112,7 +112,7 @@ MIMIC-IV-Note does not require ISERROR filtering (erroneous notes were removed f
 | Failure reason: `no_header` | 38,459 |
 | Failure reason: `empty_section` | 5 |
 
-Our 88.4% is a pure extraction success rate: we attempt extraction on all 331,793 notes and report how many succeed. Aali et al.'s 81.4% (270,033/331,794) is the output of their full pipeline, which includes a structural pre-filter, extraction, and a minimum length threshold. We cannot decompose their lower rate into per-stage losses because the intermediate counts are not published.
+Our 88.4% is a pure extraction success rate: we attempt extraction on all 331,793 notes and report how many succeed. Aali et al.'s 81.4% (270,033/331,794) is the output of their full pipeline, which includes a structural pre-filter, extraction, and a minimum length threshold. We cannot decompose their lower rate into per-stage losses because the intermediate counts are not published. For context on the summarization task's compression ratio: Aali et al. report an average BHC length of 564 ± 410 tokens and an average non-BHC input length (the rest of the discharge summary) of 2,267 ± 914 tokens.
 
 The higher failure rate on MIMIC-IV (11.6%) compared to MIMIC-III (3.0%) reflects a larger proportion of notes that lack any recognizable BHC header. Inspection of 20 failed notes showed 13 with standard section headers (Chief Complaint, History of Present Illness, etc.) but no BHC section, suggesting these notes use a template that omits the Brief Hospital Course as a named section. Aali et al.'s structural pre-filter (`text[88:91] == 'Sex'`) would exclude many of these non-standard notes before extraction, which likely explains part of the rate difference.
 
