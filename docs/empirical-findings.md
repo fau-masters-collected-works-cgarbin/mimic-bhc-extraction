@@ -2,6 +2,14 @@
 
 Extraction results, tool comparisons, and known limitations from running the extractor on MIMIC-III v1.4 and MIMIC-IV-Note v2.2. For the extraction algorithm and design rationale, see [Extraction Design](extraction-design.md).
 
+## About the two datasets
+
+MIMIC-III and MIMIC-IV both come from Beth Israel Deaconess Medical Center but differ in scope, time period, and data quality. MIMIC-III (v1.4, 2001-2012) covers ICU patients only. Its clinical notes live in a single NOTEEVENTS table that mixes all note types (discharge summaries, radiology reports, nursing notes, etc.), includes an ISERROR column for notes entered in error, and stores addendums as separate rows sharing the same admission ID. Extracting discharge summaries requires filtering by CATEGORY, handling ISERROR flags, and deduplicating addendums.
+
+MIMIC-IV (v3.1, 2008-2022) covers hospital-wide admissions, not just ICU. Clinical notes are in a separate module (MIMIC-IV-Note v2.2) with a dedicated discharge summary table (`discharge.csv.gz`) that contains only discharge notes. Erroneous notes have already been removed and each row is a unique discharge summary, so neither ISERROR filtering nor addendum deduplication is needed. The broader patient population and more recent clinical practice produce different documentation patterns: more standardized header usage but a higher proportion of notes that lack a BHC section entirely.
+
+These differences affect extraction rates, header distributions, and structure classification results throughout the sections below.
+
 ## MIMIC-III Results
 
 ### Dataset summary
