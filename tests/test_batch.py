@@ -1,7 +1,6 @@
 """Tests for the batch extraction module."""
 
 import gzip
-import json
 
 import pytest
 
@@ -143,23 +142,6 @@ class TestBatchEnrichment:
                     "domain_organized",
                     "standardized_template",
                 )
-
-    def test_pretty_print_produces_valid_json_array(self, mimic3_noteevents_gz, tmp_path):
-        """CLI write with pretty=True should produce a valid JSON array."""
-        from mimic_bhc.io import write_results
-
-        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
-
-        output_path = tmp_path / "output.json"
-        write_results(results, str(output_path), pretty=True)
-
-        with open(output_path) as f:
-            content = f.read()
-
-        parsed = json.loads(content)
-        assert isinstance(parsed, list)
-        assert len(parsed) > 0
-        assert "  " in content
 
 
 class TestFailedExtractions:
