@@ -37,7 +37,7 @@ All failures are `no_header`. No `empty_section` failures were observed. The 1,5
 
 ### Comparison with published numbers
 
-Our 97.0% extraction rate exceeds the ~87% reported by Alsentzer & Kim (2018) for MIMIC-III. The improvement comes from two design choices: (1) allowing inline text after the header colon (many notes write "HOSPITAL COURSE: The patient was admitted..." on one line rather than separating the header), and (2) matching a broader set of header variants including "Summary of Hospital Course", "Concise Summary of Hospital Course", "NICU Course", "History of Hospital Course", and "Hospitalization Course".
+Our 97.0% extraction rate benefits from two design choices: (1) allowing inline text after the header colon (many notes write "HOSPITAL COURSE: The patient was admitted..." on one line rather than separating the header), and (2) matching a broader set of header variants including "Summary of Hospital Course", "Concise Summary of Hospital Course", "NICU Course", "History of Hospital Course", and "Hospitalization Course".
 
 Adams et al. (2021) report ~109K source-target pairs from MIMIC-III. This number is larger than the ~59K total discharge summary rows in NOTEEVENTS, so it likely refers to source-target pairs in their summarization dataset (where the "source" is the collection of clinical notes for an admission and the "target" is the BHC), not to extracted BHC sections. We cannot directly compare our extraction count to their 109K.
 
@@ -365,17 +365,13 @@ Key findings:
 
 ## References
 
-- Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2024). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA, 32(3), 470-479. doi:10.1093/jamia/ocae312.
+- Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2024). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA. doi:10.1093/jamia/ocae312.
 - Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021.
-- Alsentzer, E., & Kim, A. (2018). Extractive Summarization of EHR Discharge Notes. NeurIPS ML4H Workshop.
-- Dean, S. M., Gilmore-Bykovskyi, A., Gentry, A., & Pauls, H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11.
+- Dean, S. M., Gilmore-Bykovskyi, A., Buchanan, J., Ehlenfeldt, B., & Kind, A. J. H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11.
 - Denny, J. C., Spickard, A., Johnson, K. B., Peterson, N. B., Peterson, J. F., & Miller, R. A. (2009). Evaluation of a method to identify and categorize section headers in clinical documents. JAMIA, 16(6), 806-815.
-- Hartman, E., et al. (2022). Customization scenarios for de-identification of clinical notes. BMC Medical Informatics and Decision Making, 22, 302.
-- Hartman, E., et al. (2023). Generating medically-accurate summaries of patient-provider dialogue: A multi-stage approach using large language models. BioNLP Workshop.
-- Kruse, B., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. arXiv:2501.18724.
-- Landes, J., et al. (2022). MedSecId: Medical Section Identification. COLING 2022.
+- Kruse, M., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. arXiv:2501.18724.
+- Landes, P., et al. (2022). A New Public Corpus for Clinical Section Identification: MedSecId. COLING 2022.
 - Pomares-Quimbaya, A., et al. (2019). Current approaches to identify sections within clinical narratives from electronic health records: a systematic review. BMC Medical Research Methodology, 19, 155.
 - Weed, L. L. (1968). Medical records that guide and teach. New England Journal of Medicine, 278(11), 593-600.
-- Weetman, K., Spencer, R., Greenhalgh, T., & Dale, J. (2025). Writing better hospital discharge summaries: a primer for junior doctors. BMJ, 388, e079918.
-- Wright, A., Sittig, D. F., McGowan, J., Ash, J. S., & Weed, L. L. (2019). Bringing science to medicine: an interview with Larry Weed, inventor of the problem-oriented medical record. JAMIA, 21(6), 964-968.
-- Xu, S., et al. (2024). Overview of the BioNLP 2024 Shared Task on Streamlining Discharge Documentation. BioNLP Workshop @ ACL 2024.
+- Wright, A., Sittig, D. F., McGowan, J., Ash, J. S., & Weed, L. L. (2014). Bringing science to medicine: an interview with Larry Weed, inventor of the problem-oriented medical record. JAMIA, 21(6), 964-968.
+- Xu, S., et al. (2024). Overview of the First Shared Task on Clinical Text Generation: RRG24 and "Discharge Me!" BioNLP Workshop @ ACL 2024.
