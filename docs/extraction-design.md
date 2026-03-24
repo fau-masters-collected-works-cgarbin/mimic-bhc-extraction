@@ -210,3 +210,13 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
 ```
 
 4. Update the tables in `docs/empirical-findings.md` with the new numbers. The header distribution tables list variants with count >= 100 individually and group the rest into "Other." Also update the structure classification percentages in this document (in the Structure classification section).
+
+## References
+
+- Dean, S. M., Gilmore-Bykovskyi, A., Buchanan, J., Ehlenfeldt, B., & Kind, A. J. H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11.
+- Denny, J. C., Spickard, A., Johnson, K. B., Peterson, N. B., Peterson, J. F., & Miller, R. A. (2009). Evaluation of a method to identify and categorize section headers in clinical documents. JAMIA, 16(6), 806-815.
+- Landes, P., et al. (2022). A New Public Corpus for Clinical Section Identification: MedSecId. COLING 2022.
+- Pomares-Quimbaya, A., et al. (2019). Current approaches to identify sections within clinical narratives from electronic health records: a systematic review. BMC Medical Research Methodology, 19, 155.
+- Weed, L. L. (1968). Medical records that guide and teach. New England Journal of Medicine, 278(11), 593-600.
+- Wright, A., Sittig, D. F., McGowan, J., Ash, J. S., & Weed, L. L. (2014). Bringing science to medicine: an interview with Larry Weed, inventor of the problem-oriented medical record. JAMIA, 21(6), 964-968.
+- Xu, S., et al. (2024). Overview of the First Shared Task on Clinical Text Generation: RRG24 and "Discharge Me!" BioNLP Workshop @ ACL 2024.

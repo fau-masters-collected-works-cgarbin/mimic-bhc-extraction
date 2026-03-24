@@ -367,11 +367,4 @@ Key findings:
 
 - Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2024). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA. doi:10.1093/jamia/ocae312.
 - Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021.
-- Dean, S. M., Gilmore-Bykovskyi, A., Buchanan, J., Ehlenfeldt, B., & Kind, A. J. H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11.
-- Denny, J. C., Spickard, A., Johnson, K. B., Peterson, N. B., Peterson, J. F., & Miller, R. A. (2009). Evaluation of a method to identify and categorize section headers in clinical documents. JAMIA, 16(6), 806-815.
 - Kruse, M., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. arXiv:2501.18724.
-- Landes, P., et al. (2022). A New Public Corpus for Clinical Section Identification: MedSecId. COLING 2022.
-- Pomares-Quimbaya, A., et al. (2019). Current approaches to identify sections within clinical narratives from electronic health records: a systematic review. BMC Medical Research Methodology, 19, 155.
-- Weed, L. L. (1968). Medical records that guide and teach. New England Journal of Medicine, 278(11), 593-600.
-- Wright, A., Sittig, D. F., McGowan, J., Ash, J. S., & Weed, L. L. (2014). Bringing science to medicine: an interview with Larry Weed, inventor of the problem-oriented medical record. JAMIA, 21(6), 964-968.
-- Xu, S., et al. (2024). Overview of the First Shared Task on Clinical Text Generation: RRG24 and "Discharge Me!" BioNLP Workshop @ ACL 2024.
