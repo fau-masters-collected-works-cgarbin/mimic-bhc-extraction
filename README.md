@@ -288,3 +288,7 @@ These run automatically on commit via pre-commit hooks, but can be run manually 
 ### Updating documentation metrics
 
 If you change extraction patterns, boundary logic, or structure classification, the empirical results in `docs/empirical-findings.md` may be stale. Re-run the extraction on MIMIC-III and MIMIC-IV and update the documented numbers. See [Updating documentation metrics](docs/extraction-design.md#updating-documentation-metrics) for the steps.
+
+## AI Disclosure
+
+I used a coding agent (Claude Code with Opus) in this work. I reviewed its output and am responsible for the result.
