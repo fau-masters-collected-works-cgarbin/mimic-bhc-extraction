@@ -159,11 +159,46 @@ Extraction fails (`extraction_success: false`) when no recognizable BHC header i
 
 ### Extraction statistics
 
-The `stats` command reads extraction output (JSON or JSONL from the `extract` command) and prints a summary: success/failure counts, header and end-header distributions, BHC length statistics, and structure classification distribution.
+The `stats` command reads extraction output (JSON or JSONL from the `extract` command) and prints a summary.
+
+#### Default mode: extraction JSONL only
 
 ```bash
 uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl
 ```
+
+Reports:
+
+- Success and failure counts, with failure reason breakdown.
+- Start-header and end-header distributions, including unbounded extractions.
+- BHC length statistics (mean, median, quartiles, min, max) and short-extraction count.
+- Structure classification distribution (narrative, domain-organized, standardized template).
+- Patient concentration: distinct patient count and the number of patients with 1, 2, 3, or 4+ admissions.
+
+#### Population-baseline mode: extraction JSONL + MIMIC source tables
+
+```bash
+uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl --mimic-dir $MIMIC3_NOTES
+```
+
+Adds four sections that require joining the extraction output with MIMIC-III source tables:
+
+- Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available.
+- Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed), matching the cohort builder's `LOS >= 3` filter.
+- BHC format by note-category availability: 2x2 cross-tab of `narrative` and `domain_organized` against `clinical_narrative` and `imaging_only`. Templates (`standardized_template`) are excluded. The script self-checks the row totals against the structure distribution and raises an error if they disagree.
+- Mortality: count and percentage of admissions where `HOSPITAL_EXPIRE_FLAG = 1`.
+
+`--mimic-dir` points at a directory containing `ADMISSIONS.csv.gz`, `NOTEEVENTS.csv.gz`, and `ICUSTAYS.csv.gz` (typically `physionet.org/files/mimiciii/1.4/`). The command auto-discovers the three files there. If your tables live in different directories, override individual paths with `--admissions`, `--noteevents`, and `--icustays`. ICUSTAYS is optional and only powers the by-ICU-system breakdown.
+
+```bash
+# Per-table flags instead of --mimic-dir
+uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl \
+    --admissions /path/to/ADMISSIONS.csv.gz \
+    --noteevents /path/to/NOTEEVENTS.csv.gz \
+    --icustays /path/to/ICUSTAYS.csv.gz
+```
+
+All sections share the same admission universe: admissions where BHC extraction succeeded. These baselines are reference values for cohort audits. Compare per-stratum percentages from a sampled cohort against them to distinguish structural skew from sampling noise.
 
 ### Discovering section headers
 
