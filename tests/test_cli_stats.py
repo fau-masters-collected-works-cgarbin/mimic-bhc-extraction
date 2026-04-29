@@ -3,7 +3,9 @@
 import json
 from argparse import Namespace
 
-from mimic_bhc.cli import _run_stats
+import pytest
+
+from mimic_bhc.cli import _resolve_mimic_paths, _run_stats
 from mimic_bhc.model import BHCResult
 from mimic_bhc.structure import StructureResult
 
@@ -97,3 +99,61 @@ class TestRunStats:
 
         output = capsys.readouterr().out
         assert "No records found" in output
+
+    def test_patient_concentration_always_shown(self, tmp_path, capsys):
+        path = tmp_path / "results.jsonl"
+        # Two patients: one with two admissions (hadm 1+2 share subject_id 100),
+        # one with a single admission (hadm 3, subject_id 200).
+        records = [
+            {**_make_record(1), "subject_id": 100},
+            {**_make_record(2), "subject_id": 100},
+            {**_make_record(3), "subject_id": 200},
+        ]
+        path.write_text("\n".join(json.dumps(r) for r in records))
+
+        args = Namespace(
+            input=str(path),
+            mimic_dir=None,
+            admissions=None,
+            noteevents=None,
+            icustays=None,
+        )
+        ret = _run_stats(args)
+        assert ret == 0
+
+        output = capsys.readouterr().out
+        assert "Patient concentration:" in output
+        assert "Distinct patients:" in output
+        assert "Patients with 1 admission:" in output
+        assert "Patients with 2 admissions:" in output
+        # Population-stat sections should NOT appear without --mimic-dir
+        assert "Note-category availability:" not in output
+        assert "Length of stay" not in output
+        assert "Mortality:" not in output
+
+    def test_resolve_mimic_paths_exits_when_required_table_missing(self):
+        """ADMISSIONS provided without NOTEEVENTS: exit with code 2.
+
+        Population stats need both tables. Passing only one is a config error,
+        and the CLI must surface it loudly rather than silently skip the
+        population block.
+        """
+        args = Namespace(
+            mimic_dir=None,
+            admissions="/some/admissions.csv.gz",
+            noteevents=None,
+            icustays=None,
+        )
+        with pytest.raises(SystemExit) as exc:
+            _resolve_mimic_paths(args)
+        assert exc.value.code == 2
+
+    def test_resolve_mimic_paths_returns_none_when_no_source_supplied(self):
+        """No --mimic-dir and no per-table flags: skip population stats silently."""
+        args = Namespace(
+            mimic_dir=None,
+            admissions=None,
+            noteevents=None,
+            icustays=None,
+        )
+        assert _resolve_mimic_paths(args) is None
