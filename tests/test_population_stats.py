@@ -26,11 +26,13 @@ def _result(
     subject_id: int,
     success: bool = True,
     category: str | None = "narrative",
+    bhc_char_count: int = 0,
 ) -> BHCResult:
     structure = StructureResult(category=category) if success and category else None
+    bhc_text = "x" * bhc_char_count if bhc_char_count else None
     return BHCResult(
         extraction_success=success,
-        bhc_text=None,
+        bhc_text=bhc_text,
         start_header=None,
         end_header=None,
         failure_reason=None if success else "no_header",
@@ -332,3 +334,262 @@ class TestComputePopulationStats:
         assert stats["los_distribution"]["total"] == 0
         assert stats["format_by_note_category"]["grand_total"] == 0
         assert stats["mortality"]["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# MetaVision-only length-stratified breakdowns
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def bucket_paths(tmp_path):
+    """ADMISSIONS, NOTEEVENTS, and ICUSTAYS for the boundary-test universe.
+
+    Returns ``(admissions, noteevents, icustays)`` paths. The 14 hadm_ids span
+    every LOS bucket boundary using the inclusive lower- and upper-bound LOS
+    values for each bucket. Note-category is held constant (clinical_narrative
+    via Nursing notes) so the LOS/length tests do not need to coordinate which
+    side of the column each bucket sits on. All admissions are MetaVision.
+    """
+    los_rows = [
+        (1000, 0),
+        (1001, 2),
+        (1002, 3),
+        (1003, 4),
+        (1004, 5),
+        (1005, 6),
+        (1006, 7),
+        (1007, 9),
+        (1008, 10),
+        (1009, 13),
+        (1010, 14),
+        (1011, 20),
+        (1012, 21),
+        (1013, 30),
+    ]
+    admissions_lines = [
+        "ROW_ID,SUBJECT_ID,HADM_ID,ADMITTIME,DISCHTIME,HOSPITAL_EXPIRE_FLAG",
+    ]
+    notes_lines = ["ROW_ID,SUBJECT_ID,HADM_ID,CATEGORY,TEXT"]
+    icu_lines = ["ROW_ID,SUBJECT_ID,HADM_ID,ICUSTAY_ID,DBSOURCE"]
+    for i, (hadm, los) in enumerate(los_rows, start=1):
+        admit = "2150-01-01 00:00:00"
+        # Discharge = admit + LOS days at midnight (so DATE_DIFF == LOS).
+        disch = f"2150-01-{1 + los:02d} 00:00:00"
+        admissions_lines.append(f"{i},{hadm // 10},{hadm},{admit},{disch},0")
+        notes_lines.append(f"{i},{hadm // 10},{hadm},Nursing,Some text")
+        icu_lines.append(f"{i},{hadm // 10},{hadm},{hadm * 10},metavision")
+
+    admissions_path = tmp_path / "ADMISSIONS.csv.gz"
+    notes_path = tmp_path / "NOTEEVENTS.csv.gz"
+    icu_path = tmp_path / "ICUSTAYS.csv.gz"
+    with gzip.open(admissions_path, "wt") as f:
+        f.write("\n".join(admissions_lines) + "\n")
+    with gzip.open(notes_path, "wt") as f:
+        f.write("\n".join(notes_lines) + "\n")
+    with gzip.open(icu_path, "wt") as f:
+        f.write("\n".join(icu_lines) + "\n")
+    return admissions_path, notes_path, icu_path
+
+
+class TestLengthStratifiedBreakdowns:
+    def test_breakdowns_absent_without_icustays(self, admissions_gz, noteevents_gz):
+        """No icustays_path: by_los_bucket / by_bhc_length_bucket are None."""
+        results = [_result(hadm_id=100, subject_id=10)]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_gz),
+            noteevents_path=str(noteevents_gz),
+        )
+        nca = stats["note_category_availability"]
+        assert nca["by_los_bucket"] is None
+        assert nca["by_bhc_length_bucket"] is None
+
+    def test_los_buckets_have_expected_boundaries(self, bucket_paths):
+        """Every LOS bucket gets exactly the two boundary admissions seeded."""
+        admissions, noteevents, icustays = bucket_paths
+        results = [_result(hadm_id=h, subject_id=h // 10) for h in range(1000, 1014)]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions),
+            noteevents_path=str(noteevents),
+            icustays_path=str(icustays),
+        )
+        breakdown = stats["note_category_availability"]["by_los_bucket"]
+        assert breakdown is not None
+
+        per_label = {row["label"]: row for row in breakdown["rows"]}
+        # Each bucket has exactly two seeded admissions, all clinical_narrative.
+        for label in (
+            "<3 days",
+            "3 to 4 days",
+            "5 to 6 days",
+            "7 to 9 days",
+            "10 to 13 days",
+            "14 to 20 days",
+            "21+ days",
+        ):
+            assert per_label[label]["clinical_narrative"] == 2, label
+            assert per_label[label]["imaging_only"] == 0, label
+
+    def test_bhc_length_buckets_have_expected_boundaries(self, bucket_paths):
+        """Each BHC-length bucket gets exactly the seeded boundary admissions."""
+        admissions, noteevents, icustays = bucket_paths
+        # BHC char counts chosen on each bucket boundary.
+        char_counts = {
+            1000: 0,  # <500
+            1001: 499,  # <500
+            1002: 500,  # 500 to 999
+            1003: 999,  # 500 to 999
+            1004: 1000,  # 1,000 to 1,999
+            1005: 1999,  # 1,000 to 1,999
+            1006: 2000,  # 2,000 to 2,999
+            1007: 2999,  # 2,000 to 2,999
+            1008: 3000,  # 3,000 to 4,999
+            1009: 4999,  # 3,000 to 4,999
+            1010: 5000,  # 5,000 to 9,999
+            1011: 9999,  # 5,000 to 9,999
+            1012: 10_000,  # 10,000+
+            1013: 50_000,  # 10,000+
+        }
+        results = [
+            _result(hadm_id=h, subject_id=h // 10, bhc_char_count=char_counts[h])
+            for h in range(1000, 1014)
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions),
+            noteevents_path=str(noteevents),
+            icustays_path=str(icustays),
+        )
+        breakdown = stats["note_category_availability"]["by_bhc_length_bucket"]
+        assert breakdown is not None
+        per_label = {row["label"]: row for row in breakdown["rows"]}
+        for label in (
+            "<500 chars",
+            "500 to 999",
+            "1,000 to 1,999",
+            "2,000 to 2,999",
+            "3,000 to 4,999",
+            "5,000 to 9,999",
+            "10,000+ chars",
+        ):
+            assert per_label[label]["clinical_narrative"] == 2, label
+            assert per_label[label]["imaging_only"] == 0, label
+
+    def test_bucket_breakdowns_exclude_non_metavision(
+        self, admissions_gz, noteevents_gz, icustays_gz
+    ):
+        """CareVue and mixed admissions are dropped before bucketing.
+
+        Fixture has hadm 100 (carevue, LOS 5), 200 (metavision, LOS 1), 300
+        (metavision, LOS 10). The MetaVision-only LOS buckets must therefore
+        contain only the two metavision rows: 1 in '<3 days', 1 in
+        '10 to 13 days'.
+        """
+        results = [
+            _result(hadm_id=100, subject_id=10),
+            _result(hadm_id=200, subject_id=20),
+            _result(hadm_id=300, subject_id=30),
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_gz),
+            noteevents_path=str(noteevents_gz),
+            icustays_path=str(icustays_gz),
+        )
+        breakdown = stats["note_category_availability"]["by_los_bucket"]
+        assert breakdown is not None
+        per_label = {row["label"]: row for row in breakdown["rows"]}
+        totals = {
+            label: row["clinical_narrative"] + row["imaging_only"]
+            for label, row in per_label.items()
+        }
+        assert totals["<3 days"] == 1  # hadm 200
+        assert totals["10 to 13 days"] == 1  # hadm 300
+        # CareVue hadm 100 (LOS 5) does not show up in the 5 to 6 days bucket.
+        assert totals["5 to 6 days"] == 0
+        # Total over all buckets equals MetaVision admission count.
+        assert sum(totals.values()) == 2
+
+    def test_bucket_row_totals_equal_metavision_total(
+        self, admissions_gz, noteevents_gz, icustays_gz
+    ):
+        """Row counts in the LOS breakdown sum to the MetaVision row total.
+
+        Strongest self-check from the handoff: each new sub-block must sum to
+        the same MetaVision count reported in the by-ICU-system block.
+        """
+        results = [
+            _result(hadm_id=100, subject_id=10),
+            _result(hadm_id=200, subject_id=20),
+            _result(hadm_id=300, subject_id=30),
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_gz),
+            noteevents_path=str(noteevents_gz),
+            icustays_path=str(icustays_gz),
+        )
+        nca = stats["note_category_availability"]
+        by_dbsource = nca["by_dbsource"]
+        assert by_dbsource is not None
+        metavision_total = (
+            by_dbsource["metavision"]["clinical_narrative"]
+            + by_dbsource["metavision"]["imaging_only"]
+        )
+        for breakdown_key in ("by_los_bucket", "by_bhc_length_bucket"):
+            breakdown = nca[breakdown_key]
+            assert breakdown is not None
+            row_sum = sum(r["clinical_narrative"] + r["imaging_only"] for r in breakdown["rows"])
+            assert row_sum + breakdown["excluded"] == metavision_total, breakdown_key
+
+    def test_excluded_counts_missing_los(self, tmp_path):
+        """Admissions with NULL ADMITTIME or DISCHTIME are excluded and counted."""
+        csv = (
+            "ROW_ID,SUBJECT_ID,HADM_ID,ADMITTIME,DISCHTIME,HOSPITAL_EXPIRE_FLAG\n"
+            # hadm 1000: valid LOS = 5
+            "1,100,1000,2150-01-01 00:00:00,2150-01-06 00:00:00,0\n"
+            # hadm 1001: missing DISCHTIME -> NaN LOS
+            "2,100,1001,2150-01-01 00:00:00,,0\n"
+        )
+        path = tmp_path / "ADMISSIONS.csv.gz"
+        with gzip.open(path, "wt") as f:
+            f.write(csv)
+
+        # ICUSTAYS for both hadm_ids so they are both metavision.
+        icu = (
+            "ROW_ID,SUBJECT_ID,HADM_ID,ICUSTAY_ID,DBSOURCE\n"
+            "1,100,1000,10000,metavision\n"
+            "2,100,1001,10001,metavision\n"
+        )
+        icu_path = tmp_path / "ICUSTAYS.csv.gz"
+        with gzip.open(icu_path, "wt") as f:
+            f.write(icu)
+
+        # NOTEEVENTS for both hadm_ids.
+        notes = (
+            "ROW_ID,SUBJECT_ID,HADM_ID,CATEGORY,TEXT\n"
+            "1,100,1000,Nursing,Some text\n"
+            "2,100,1001,Nursing,Some text\n"
+        )
+        notes_path = tmp_path / "NOTEEVENTS.csv.gz"
+        with gzip.open(notes_path, "wt") as f:
+            f.write(notes)
+
+        results = [
+            _result(hadm_id=1000, subject_id=100),
+            _result(hadm_id=1001, subject_id=100),
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(path),
+            noteevents_path=str(notes_path),
+            icustays_path=str(icu_path),
+        )
+        breakdown = stats["note_category_availability"]["by_los_bucket"]
+        assert breakdown is not None
+        # hadm 1000 lands in '5 to 6 days'. hadm 1001 is excluded.
+        per_label = {row["label"]: row for row in breakdown["rows"]}
+        assert per_label["5 to 6 days"]["clinical_narrative"] == 1
+        assert breakdown["excluded"] == 1

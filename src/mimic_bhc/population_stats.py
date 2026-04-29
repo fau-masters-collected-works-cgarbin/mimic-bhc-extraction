@@ -59,6 +59,33 @@ _PATIENT_CONCENTRATION_TAIL_BUCKET = 4
 # Length of stay: < 3 days is the slice the cohort filter (LOS >= 3) removes.
 _LOS_FILTER_DAYS = 3
 
+# Bucket edges for the MetaVision-only length-stratified breakdowns of
+# note-category availability. Each entry is (label, low, high) where the
+# bucket matches values v with low <= v <= high (inclusive on both ends).
+# A None high is open-ended (>= low). Edges are anchored to the
+# population LOS quartiles (Q25=4, median=7, Q75=13) and BHC-length
+# quartiles (Q25~=1544, median~=2521, Q75~=3940), not balanced for equal
+# counts. The long-tail buckets (21+ days, 10,000+ chars) are
+# intentionally smaller.
+_LOS_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
+    ("<3 days", 0, 2),
+    ("3 to 4 days", 3, 4),
+    ("5 to 6 days", 5, 6),
+    ("7 to 9 days", 7, 9),
+    ("10 to 13 days", 10, 13),
+    ("14 to 20 days", 14, 20),
+    ("21+ days", 21, None),
+)
+_BHC_LENGTH_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
+    ("<500 chars", 0, 499),
+    ("500 to 999", 500, 999),
+    ("1,000 to 1,999", 1000, 1999),
+    ("2,000 to 2,999", 2000, 2999),
+    ("3,000 to 4,999", 3000, 4999),
+    ("5,000 to 9,999", 5000, 9999),
+    ("10,000+ chars", 10000, None),
+)
+
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -76,12 +103,34 @@ class PatientConcentration(TypedDict):
     total_admissions: int
 
 
+class BucketRow(TypedDict):
+    """One row of a length-stratified note-category breakdown."""
+
+    label: str
+    clinical_narrative: int
+    imaging_only: int
+
+
+class BucketedAvailability(TypedDict):
+    """MetaVision-only note-category availability stratified by a value bucket.
+
+    ``rows`` is ordered for display. ``excluded`` counts MetaVision admissions
+    dropped from the breakdown because the bucketing value (LOS or BHC length)
+    or the note-category was missing.
+    """
+
+    rows: list[BucketRow]
+    excluded: int
+
+
 class NoteCategoryAvailability(TypedDict):
     """Counts of admissions by note-category availability class."""
 
     counts: dict[str, int]
     total: int
     by_dbsource: dict[str, dict[str, int]] | None
+    by_los_bucket: BucketedAvailability | None
+    by_bhc_length_bucket: BucketedAvailability | None
 
 
 class LosStats(TypedDict):
@@ -287,6 +336,7 @@ def _build_admission_frame(
             "hadm_id": r.hadm_id,
             "subject_id": r.subject_id,
             "bhc_format": r.bhc_structure.category if r.bhc_structure else None,
+            "bhc_char_count": r.bhc_char_count,
         }
         for r in results
         if r.extraction_success and r.hadm_id is not None
@@ -297,7 +347,7 @@ def _build_admission_frame(
         # Empty universe: build the empty frame explicitly so set_index does
         # not fail on a column-less DataFrame.
         base = pd.DataFrame(
-            columns=["subject_id", "bhc_format"],
+            columns=["subject_id", "bhc_format", "bhc_char_count"],
             index=pd.Index([], name="hadm_id", dtype="int64"),
         )
     df = base.join(admissions, how="left").join(note_categories, how="left")
@@ -305,6 +355,37 @@ def _build_admission_frame(
         df = df.join(icu_dbsource, how="left")
         df["dbsource"] = df["dbsource"].fillna(DBSOURCE_NO_ICU)
     return df
+
+
+def _bucketed_availability(
+    df: pd.DataFrame,
+    *,
+    value_col: str,
+    buckets: Sequence[tuple[str, int, int | None]],
+) -> BucketedAvailability:
+    """Bucket ``df`` rows by ``value_col`` and count note-category in each bucket.
+
+    Caller must restrict ``df`` to rows with a known ``note_category`` before
+    calling. Rows missing ``value_col`` are excluded and reported in the
+    ``excluded`` field. Bucket bounds are inclusive on both ends. An
+    open-ended bucket (``high is None``) matches values >= ``low``.
+
+    The contract that note_category is non-null on entry preserves the spec
+    invariant that row totals plus excluded equal the input row count.
+    """
+    valid = df.dropna(subset=[value_col])
+    excluded = int(len(df) - len(valid))
+    rows: list[BucketRow] = []
+    for label, low, high in buckets:
+        if high is None:
+            mask = valid[value_col] >= low
+        else:
+            mask = (valid[value_col] >= low) & (valid[value_col] <= high)
+        sub = valid[mask]
+        cn = int((sub["note_category"] == CLINICAL_NARRATIVE).sum())
+        imaging = int((sub["note_category"] == IMAGING_ONLY).sum())
+        rows.append({"label": label, "clinical_narrative": cn, "imaging_only": imaging})
+    return {"rows": rows, "excluded": excluded}
 
 
 def _note_category_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteCategoryAvailability:
@@ -315,6 +396,8 @@ def _note_category_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteCatego
     total = int(counts[CLINICAL_NARRATIVE] + counts[IMAGING_ONLY])
 
     by_dbsource: dict[str, dict[str, int]] | None = None
+    by_los_bucket: BucketedAvailability | None = None
+    by_bhc_length_bucket: BucketedAvailability | None = None
     if with_dbsource and "dbsource" in valid.columns:
         by_dbsource = {}
         for source, sub in valid.groupby("dbsource"):
@@ -326,6 +409,23 @@ def _note_category_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteCatego
                 IMAGING_ONLY: int(sub_counts[IMAGING_ONLY]),
             }
 
+        # MetaVision is the cohort filter's reference population. Restricting
+        # the length-stratified breakdowns to MetaVision keeps them comparable
+        # to the cohort audit's per-stratum numbers. CareVue and mixed-source
+        # admissions sit outside the cohort universe, so including them would
+        # blur the baseline these breakdowns are meant to provide.
+        #
+        # ``valid`` is already filtered to rows with a known note_category, so
+        # the bucket breakdowns will reconcile with the by-dbsource MetaVision
+        # row count: rows + excluded == metavision_total.
+        metavision = valid[valid["dbsource"] == DBSOURCE_METAVISION]
+        by_los_bucket = _bucketed_availability(
+            metavision, value_col="los_days", buckets=_LOS_BUCKETS
+        )
+        by_bhc_length_bucket = _bucketed_availability(
+            metavision, value_col="bhc_char_count", buckets=_BHC_LENGTH_BUCKETS
+        )
+
     return {
         "counts": {
             CLINICAL_NARRATIVE: int(counts[CLINICAL_NARRATIVE]),
@@ -333,6 +433,8 @@ def _note_category_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteCatego
         },
         "total": total,
         "by_dbsource": by_dbsource,
+        "by_los_bucket": by_los_bucket,
+        "by_bhc_length_bucket": by_bhc_length_bucket,
     }
 
 

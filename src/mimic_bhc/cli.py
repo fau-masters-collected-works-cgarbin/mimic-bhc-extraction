@@ -11,7 +11,18 @@ from mimic_bhc.discovery import discover_headers_from_file
 from mimic_bhc.io import write_results
 
 if TYPE_CHECKING:
-    from mimic_bhc.population_stats import PatientConcentration, PopulationStats
+    from mimic_bhc.population_stats import (
+        BucketedAvailability,
+        PatientConcentration,
+        PopulationStats,
+    )
+
+# Column widths for the length-stratified bucket breakdowns. Kept at module
+# scope so the header, data rows, and totals row use the same alignment.
+_BUCKET_LABEL_W = 22
+_BUCKET_CLINICAL_NARRATIVE_W = 20
+_BUCKET_IMAGING_ONLY_W = 20
+_BUCKET_TOTAL_W = 10
 
 
 class _ResolvedMimicPaths(TypedDict):
@@ -212,6 +223,19 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
                 pct = 100 * count / sub_total if sub_total else 0.0
                 print(f"      {label:<36} {count:>8,} ({pct:>5.1f}%)")
 
+    if nca["by_los_bucket"] is not None:
+        _print_bucketed_availability(
+            "By LOS bucket (MetaVision only):",
+            nca["by_los_bucket"],
+            excluded_descriptor="missing LOS",
+        )
+    if nca["by_bhc_length_bucket"] is not None:
+        _print_bucketed_availability(
+            "By BHC length bucket (MetaVision only):",
+            nca["by_bhc_length_bucket"],
+            excluded_descriptor="missing BHC length",
+        )
+
     los = pop_stats["los_distribution"]
     los_total = los["total"]
     print("\nLength of stay (days):")
@@ -251,6 +275,52 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
         f"  {'Hospital deaths (HOSPITAL_EXPIRE_FLAG=1):':<40} "
         f"{mort['deaths']:>8,} ({mort_pct:>5.1f}%)"
     )
+
+
+def _print_bucketed_availability(
+    title: str,
+    breakdown: BucketedAvailability,
+    *,
+    excluded_descriptor: str,
+) -> None:
+    """Print a length-stratified note-category breakdown.
+
+    Layout matches the existing two-space indentation. Each cell shows the
+    count and the row-relative percentage. The trailing Total row shows
+    column totals without percentages.
+    """
+    label_w = _BUCKET_LABEL_W
+    cn_w = _BUCKET_CLINICAL_NARRATIVE_W
+    im_w = _BUCKET_IMAGING_ONLY_W
+    tot_w = _BUCKET_TOTAL_W
+    print(f"\n  {title}")
+    print(
+        f"    {'':<{label_w}}"
+        f"{'clinical_narrative':>{cn_w}}"
+        f"{'imaging_only':>{im_w}}"
+        f"{'Total':>{tot_w}}"
+    )
+    col_cn = 0
+    col_imaging = 0
+    col_tot = 0
+    for row in breakdown["rows"]:
+        cn = row["clinical_narrative"]
+        imaging = row["imaging_only"]
+        tot = cn + imaging
+        cn_pct = 100 * cn / tot if tot else 0.0
+        imaging_pct = 100 * imaging / tot if tot else 0.0
+        cn_cell = f"{cn:>6,} ({cn_pct:>5.1f}%)"
+        imaging_cell = f"{imaging:>6,} ({imaging_pct:>5.1f}%)"
+        print(
+            f"    {row['label']:<{label_w}}{cn_cell:>{cn_w}}{imaging_cell:>{im_w}}{tot:>{tot_w},}"
+        )
+        col_cn += cn
+        col_imaging += imaging
+        col_tot += tot
+    print(f"    {'Total':<{label_w}}{col_cn:>{cn_w},}{col_imaging:>{im_w},}{col_tot:>{tot_w},}")
+    excluded = breakdown["excluded"]
+    if excluded:
+        print(f"    ({excluded:,} admissions excluded due to {excluded_descriptor})")
 
 
 def _print_patient_concentration(concentration: PatientConcentration) -> None:

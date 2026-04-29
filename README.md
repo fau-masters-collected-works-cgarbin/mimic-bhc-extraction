@@ -183,7 +183,7 @@ uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl --mimic-dir $MIMIC3_NOTE
 
 Adds four sections that require joining the extraction output with MIMIC-III source tables:
 
-- Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available.
+- Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available, and further by length-of-stay bucket and BHC-length bucket over the MetaVision-only subset.
 - Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed), matching the cohort builder's `LOS >= 3` filter.
 - BHC format by note-category availability: 2x2 cross-tab of `narrative` and `domain_organized` against `clinical_narrative` and `imaging_only`. Templates (`standardized_template`) are excluded. The script self-checks the row totals against the structure distribution and raises an error if they disagree.
 - Mortality: count and percentage of admissions where `HOSPITAL_EXPIRE_FLAG = 1`.

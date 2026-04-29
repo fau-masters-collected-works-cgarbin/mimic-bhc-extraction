@@ -5,7 +5,11 @@ from argparse import Namespace
 
 import pytest
 
-from mimic_bhc.cli import _resolve_mimic_paths, _run_stats
+from mimic_bhc.cli import (
+    _print_bucketed_availability,
+    _resolve_mimic_paths,
+    _run_stats,
+)
 from mimic_bhc.model import BHCResult
 from mimic_bhc.structure import StructureResult
 
@@ -157,3 +161,51 @@ class TestRunStats:
             icustays=None,
         )
         assert _resolve_mimic_paths(args) is None
+
+
+# ---------------------------------------------------------------------------
+# _print_bucketed_availability
+# ---------------------------------------------------------------------------
+
+
+class TestPrintBucketedAvailability:
+    def test_renders_header_data_and_total_rows(self, capsys):
+        breakdown = {
+            "rows": [
+                {"label": "<3 days", "clinical_narrative": 4, "imaging_only": 1},
+                {"label": "3 to 4 days", "clinical_narrative": 6, "imaging_only": 4},
+            ],
+            "excluded": 0,
+        }
+        _print_bucketed_availability(
+            "By LOS bucket (MetaVision only):",
+            breakdown,
+            excluded_descriptor="missing or invalid LOS",
+        )
+        out = capsys.readouterr().out
+        assert "By LOS bucket (MetaVision only):" in out
+        assert "clinical_narrative" in out
+        assert "imaging_only" in out
+        # Per-row percentage on the first bucket: 4 / 5 = 80.0%.
+        assert "80.0%" in out
+        # Total row sums clinical_narrative + imaging_only across buckets.
+        assert "Total" in out
+        assert "10" in out  # clinical_narrative total
+        assert "5" in out  # imaging_only total
+        # No exclusion comment when nothing was excluded.
+        assert "excluded" not in out
+
+    def test_renders_excluded_comment(self, capsys):
+        breakdown = {
+            "rows": [
+                {"label": "<3 days", "clinical_narrative": 1, "imaging_only": 0},
+            ],
+            "excluded": 7,
+        }
+        _print_bucketed_availability(
+            "By LOS bucket (MetaVision only):",
+            breakdown,
+            excluded_descriptor="missing or invalid LOS",
+        )
+        out = capsys.readouterr().out
+        assert "7 admissions excluded due to missing or invalid LOS" in out
