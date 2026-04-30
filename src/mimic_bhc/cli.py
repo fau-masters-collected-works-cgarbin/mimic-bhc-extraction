@@ -35,7 +35,8 @@ if TYPE_CHECKING:
 _TABLE_INDENT = "    "
 _TABLE_FMT = "simple"
 _BUCKET_EXCLUSION_NOTE = (
-    '(Mixed and No-ICU systems are aggregated in the "By ICU system" block above.)'
+    '("All count" sums CareVue, MetaVision, Mixed, and No-ICU. '
+    'Mixed and No-ICU are itemized in the "By ICU system" block above.)'
 )
 _BUCKET_PRINT_COLUMNS: tuple[str, ...] = (
     BUCKET_COLUMN_TOTAL,

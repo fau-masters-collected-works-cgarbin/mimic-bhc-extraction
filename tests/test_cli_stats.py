@@ -217,7 +217,8 @@ class TestPrintBucketedAvailability:
         # Total row counts (Total / CareVue / MetaVision) anchored against
         # the literal Total prefix so substrings inside other rows do not match.
         assert "Total        15" in out
-        assert "Mixed and No-ICU systems are aggregated" in out
+        assert '"All count" sums CareVue, MetaVision, Mixed, and No-ICU' in out
+        assert 'Mixed and No-ICU are itemized in the "By ICU system" block above' in out
         assert "admissions excluded due to missing value" not in out
 
     def test_renders_excluded_comment(self, capsys):
