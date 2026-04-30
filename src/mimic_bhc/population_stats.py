@@ -42,11 +42,9 @@ if TYPE_CHECKING:
 CLINICAL_NARRATIVE = "clinical_narrative"
 IMAGING_ONLY = "imaging_only"
 
-# ICU dbsource buckets. MIMIC-III ICUSTAYS.dbsource is "carevue" or "metavision".
-# Admissions are bucketed by the strict rule used by the cohort filter:
-# "metavision" requires every ICU stay to be metavision; "carevue" the same.
-# "mixed" covers admissions with stays in both systems; "no_icu" admissions
-# without any ICU stay record (rare in MIMIC-III).
+# ICU dbsource buckets. "metavision" / "carevue" require every ICU stay to
+# come from that system. "mixed" covers admissions with stays in both.
+# "no_icu" covers admissions without any ICU stay record (rare in MIMIC-III).
 DBSOURCE_CAREVUE = "carevue"
 DBSOURCE_METAVISION = "metavision"
 DBSOURCE_MIXED = "mixed"
@@ -59,14 +57,10 @@ _PATIENT_CONCENTRATION_TAIL_BUCKET = 4
 # Length of stay: < 3 days is the slice the cohort filter (LOS >= 3) removes.
 _LOS_FILTER_DAYS = 3
 
-# Bucket edges for the MetaVision-only length-stratified breakdowns of
-# note-category availability. Each entry is (label, low, high) where the
-# bucket matches values v with low <= v <= high (inclusive on both ends).
-# A None high is open-ended (>= low). Edges are anchored to the
-# population LOS quartiles (Q25=4, median=7, Q75=13) and BHC-length
-# quartiles (Q25~=1544, median~=2521, Q75~=3940), not balanced for equal
-# counts. The long-tail buckets (21+ days, 10,000+ chars) are
-# intentionally smaller.
+# Bucket edges anchored to population LOS quartiles (Q25=4, median=7,
+# Q75=13) and BHC-length quartiles (Q25~=1544, median~=2521, Q75~=3940),
+# not balanced for equal counts. The long-tail buckets (21+ days,
+# 10,000+ chars) are intentionally smaller.
 _LOS_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
     ("<3 days", 0, 2),
     ("3 to 4 days", 3, 4),
@@ -103,24 +97,46 @@ class PatientConcentration(TypedDict):
     total_admissions: int
 
 
-class BucketRow(TypedDict):
-    """One row of a length-stratified note-category breakdown."""
+class BucketSystemCounts(TypedDict):
+    """Note-category counts for one (bucket, ICU system) cell."""
 
-    label: str
     clinical_narrative: int
     imaging_only: int
 
 
-class BucketedAvailability(TypedDict):
-    """MetaVision-only note-category availability stratified by a value bucket.
+BUCKET_COLUMN_TOTAL = "total"
+BUCKET_COLUMN_CAREVUE = "carevue"
+BUCKET_COLUMN_METAVISION = "metavision"
 
-    ``rows`` is ordered for display. ``excluded`` counts MetaVision admissions
-    dropped from the breakdown because the bucketing value (LOS or BHC length)
-    or the note-category was missing.
+# Mixed and No-ICU admissions roll into the Total column but get no column
+# of their own: their bucketed cells are too sparse to be useful. The
+# parent "By ICU system" sub-block still shows their unstratified counts.
+_SYSTEM_COLUMNS: tuple[tuple[str, str | None], ...] = (
+    (BUCKET_COLUMN_TOTAL, None),
+    (BUCKET_COLUMN_CAREVUE, DBSOURCE_CAREVUE),
+    (BUCKET_COLUMN_METAVISION, DBSOURCE_METAVISION),
+)
+
+
+class BucketRow(TypedDict):
+    """One row of a length-stratified note-category breakdown."""
+
+    label: str
+    total: BucketSystemCounts
+    carevue: BucketSystemCounts
+    metavision: BucketSystemCounts
+
+
+class BucketedAvailability(TypedDict):
+    """Note-category availability stratified by a value bucket, per system.
+
+    Invariant: for each column, ``sum(row[col]) + excluded[col]`` equals
+    the matching ``by_dbsource`` row total. The Total column reconciles
+    against the population aggregate (which includes Mixed and No-ICU).
     """
 
     rows: list[BucketRow]
-    excluded: int
+    excluded: dict[str, int]
 
 
 class NoteCategoryAvailability(TypedDict):
@@ -161,6 +177,30 @@ class MortalityStats(TypedDict):
     total: int
 
 
+class DistributionStats(TypedDict):
+    """Distribution summary for one (system, class) cell."""
+
+    median: float
+    mean: float
+    p25: float
+    p75: float
+    p90: float
+    min: int
+    max: int
+    n: int
+
+
+class NoteVolumeStats(TypedDict):
+    """Per-admission note volume distributions, by ICU system and note class.
+
+    The ``total`` system bucket is always present. The ``carevue`` and
+    ``metavision`` buckets are present only when ICUSTAYS is available.
+    """
+
+    note_count: dict[str, dict[str, DistributionStats]]
+    note_chars: dict[str, dict[str, DistributionStats]]
+
+
 class PopulationStats(TypedDict):
     """Bundle of MIMIC-derived population statistics."""
 
@@ -168,6 +208,7 @@ class PopulationStats(TypedDict):
     los_distribution: LosStats
     format_by_note_category: FormatByNoteCategory
     mortality: MortalityStats
+    note_volume: NoteVolumeStats
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +319,35 @@ def load_note_category_availability(path: str, hadm_ids: set[int]) -> pd.DataFra
     return df.set_index("hadm_id")[["note_category"]]
 
 
+def load_per_admission_note_volume(path: str, hadm_ids: set[int]) -> pd.DataFrame:
+    """Per-admission note count and total characters, excluding discharge summaries.
+
+    The discharge summary is excluded because the BHC is part of it: it
+    is the generation target, not source content. Admissions whose only
+    note is the discharge summary do not appear in the returned frame.
+    Callers should reindex against their full universe and fill missing
+    rows with zeros.
+    """
+    query = """
+        SELECT
+            HADM_ID AS hadm_id,
+            COUNT(*) AS note_count,
+            SUM(LENGTH(TEXT)) AS note_chars
+        FROM read_csv_auto(?)
+        WHERE HADM_ID IS NOT NULL
+          AND CATEGORY != 'Discharge summary'
+        GROUP BY HADM_ID
+    """
+    with duckdb.connect() as conn:
+        df = conn.execute(query, [path]).fetchdf()
+    df.columns = df.columns.str.lower()
+    df = df[df["hadm_id"].isin(hadm_ids)].copy()
+    df["hadm_id"] = df["hadm_id"].astype(int)
+    df["note_count"] = df["note_count"].astype(int)
+    df["note_chars"] = df["note_chars"].fillna(0).astype(int)
+    return df.set_index("hadm_id")[["note_count", "note_chars"]]
+
+
 def load_icu_dbsource(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     """Classify each hadm_id by ICU dbsource (carevue / metavision / mixed).
 
@@ -328,6 +398,7 @@ def _build_admission_frame(
     results: Sequence[BHCResult],
     admissions: pd.DataFrame,
     note_categories: pd.DataFrame,
+    note_volume: pd.DataFrame,
     icu_dbsource: pd.DataFrame | None,
 ) -> pd.DataFrame:
     """One DataFrame keyed by hadm_id with all attributes the stats need."""
@@ -351,10 +422,27 @@ def _build_admission_frame(
             index=pd.Index([], name="hadm_id", dtype="int64"),
         )
     df = base.join(admissions, how="left").join(note_categories, how="left")
+    df = df.join(note_volume, how="left")
+    # Admissions whose only note is the discharge summary land in the
+    # universe with no row in note_volume; treat them as zero, not NaN.
+    df["note_count"] = df["note_count"].fillna(0).astype(int)
+    df["note_chars"] = df["note_chars"].fillna(0).astype(int)
     if icu_dbsource is not None:
         df = df.join(icu_dbsource, how="left")
         df["dbsource"] = df["dbsource"].fillna(DBSOURCE_NO_ICU)
     return df
+
+
+def _system_slice(df: pd.DataFrame, dbsource: str | None) -> pd.DataFrame:
+    if dbsource is None:
+        return df
+    return df[df["dbsource"] == dbsource]
+
+
+def _bucket_cell(sub: pd.DataFrame) -> BucketSystemCounts:
+    cn = int((sub["note_category"] == CLINICAL_NARRATIVE).sum())
+    imaging = int((sub["note_category"] == IMAGING_ONLY).sum())
+    return {"clinical_narrative": cn, "imaging_only": imaging}
 
 
 def _bucketed_availability(
@@ -363,28 +451,31 @@ def _bucketed_availability(
     value_col: str,
     buckets: Sequence[tuple[str, int, int | None]],
 ) -> BucketedAvailability:
-    """Bucket ``df`` rows by ``value_col`` and count note-category in each bucket.
+    """Bucket ``df`` rows by ``value_col`` and count note-category per system.
 
-    Caller must restrict ``df`` to rows with a known ``note_category`` before
-    calling. Rows missing ``value_col`` are excluded and reported in the
-    ``excluded`` field. Bucket bounds are inclusive on both ends. An
-    open-ended bucket (``high is None``) matches values >= ``low``.
-
-    The contract that note_category is non-null on entry preserves the spec
-    invariant that row totals plus excluded equal the input row count.
+    Caller must restrict ``df`` to rows with a known ``note_category`` and
+    include a ``dbsource`` column. Bucket bounds are inclusive on both
+    ends. An open-ended bucket (``high is None``) matches ``v >= low``.
     """
     valid = df.dropna(subset=[value_col])
-    excluded = int(len(df) - len(valid))
     rows: list[BucketRow] = []
     for label, low, high in buckets:
         if high is None:
             mask = valid[value_col] >= low
         else:
             mask = (valid[value_col] >= low) & (valid[value_col] <= high)
-        sub = valid[mask]
-        cn = int((sub["note_category"] == CLINICAL_NARRATIVE).sum())
-        imaging = int((sub["note_category"] == IMAGING_ONLY).sum())
-        rows.append({"label": label, "clinical_narrative": cn, "imaging_only": imaging})
+        bucket_slice = valid[mask]
+        row: BucketRow = {
+            "label": label,
+            "total": _bucket_cell(_system_slice(bucket_slice, None)),
+            "carevue": _bucket_cell(_system_slice(bucket_slice, DBSOURCE_CAREVUE)),
+            "metavision": _bucket_cell(_system_slice(bucket_slice, DBSOURCE_METAVISION)),
+        }
+        rows.append(row)
+    excluded: dict[str, int] = {
+        column: int(len(_system_slice(df, dbsource)) - len(_system_slice(valid, dbsource)))
+        for column, dbsource in _SYSTEM_COLUMNS
+    }
     return {"rows": rows, "excluded": excluded}
 
 
@@ -409,21 +500,9 @@ def _note_category_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteCatego
                 IMAGING_ONLY: int(sub_counts[IMAGING_ONLY]),
             }
 
-        # MetaVision is the cohort filter's reference population. Restricting
-        # the length-stratified breakdowns to MetaVision keeps them comparable
-        # to the cohort audit's per-stratum numbers. CareVue and mixed-source
-        # admissions sit outside the cohort universe, so including them would
-        # blur the baseline these breakdowns are meant to provide.
-        #
-        # ``valid`` is already filtered to rows with a known note_category, so
-        # the bucket breakdowns will reconcile with the by-dbsource MetaVision
-        # row count: rows + excluded == metavision_total.
-        metavision = valid[valid["dbsource"] == DBSOURCE_METAVISION]
-        by_los_bucket = _bucketed_availability(
-            metavision, value_col="los_days", buckets=_LOS_BUCKETS
-        )
+        by_los_bucket = _bucketed_availability(valid, value_col="los_days", buckets=_LOS_BUCKETS)
         by_bhc_length_bucket = _bucketed_availability(
-            metavision, value_col="bhc_char_count", buckets=_BHC_LENGTH_BUCKETS
+            valid, value_col="bhc_char_count", buckets=_BHC_LENGTH_BUCKETS
         )
 
     return {
@@ -498,6 +577,48 @@ def _mortality_stats(df: pd.DataFrame) -> MortalityStats:
     return {"deaths": int(valid.sum()), "total": len(valid)}
 
 
+def _distribution(values: pd.Series) -> DistributionStats:
+    sorted_vals = sorted(values.dropna().tolist())
+    n = len(sorted_vals)
+    if n == 0:
+        return {
+            "median": 0.0,
+            "mean": 0.0,
+            "p25": 0.0,
+            "p75": 0.0,
+            "p90": 0.0,
+            "min": 0,
+            "max": 0,
+            "n": 0,
+        }
+    return {
+        "median": _percentile(sorted_vals, 0.5),
+        "mean": sum(sorted_vals) / n,
+        "p25": _percentile(sorted_vals, 0.25),
+        "p75": _percentile(sorted_vals, 0.75),
+        "p90": _percentile(sorted_vals, 0.9),
+        "min": int(sorted_vals[0]),
+        "max": int(sorted_vals[-1]),
+        "n": n,
+    }
+
+
+def _note_volume_stats(df: pd.DataFrame, *, with_dbsource: bool) -> NoteVolumeStats:
+    valid = df.dropna(subset=["note_category"])
+    columns = _SYSTEM_COLUMNS if with_dbsource else ((BUCKET_COLUMN_TOTAL, None),)
+    note_count: dict[str, dict[str, DistributionStats]] = {}
+    note_chars: dict[str, dict[str, DistributionStats]] = {}
+    for system_key, dbsource in columns:
+        note_count[system_key] = {}
+        note_chars[system_key] = {}
+        for class_key in (CLINICAL_NARRATIVE, IMAGING_ONLY):
+            sub = _system_slice(valid, dbsource)
+            sub = sub[sub["note_category"] == class_key]
+            note_count[system_key][class_key] = _distribution(sub["note_count"])
+            note_chars[system_key][class_key] = _distribution(sub["note_chars"])
+    return {"note_count": note_count, "note_chars": note_chars}
+
+
 def compute_population_stats(
     results: Sequence[BHCResult],
     *,
@@ -521,9 +642,10 @@ def compute_population_stats(
 
     admissions = load_admissions(admissions_path, hadm_ids)
     note_categories = load_note_category_availability(noteevents_path, hadm_ids)
+    note_volume = load_per_admission_note_volume(noteevents_path, hadm_ids)
     icu_dbsource = load_icu_dbsource(icustays_path, hadm_ids) if icustays_path else None
 
-    df = _build_admission_frame(successful, admissions, note_categories, icu_dbsource)
+    df = _build_admission_frame(successful, admissions, note_categories, note_volume, icu_dbsource)
     cross_tab = _format_cross_tab(df)
 
     # Self-check: cross-tab row totals must equal the structure-distribution
@@ -556,6 +678,7 @@ def compute_population_stats(
         "los_distribution": _los_stats(df),
         "format_by_note_category": cross_tab,
         "mortality": _mortality_stats(df),
+        "note_volume": _note_volume_stats(df, with_dbsource=icu_dbsource is not None),
     }
 
 

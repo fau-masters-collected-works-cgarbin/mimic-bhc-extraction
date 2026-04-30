@@ -168,44 +168,72 @@ class TestRunStats:
 # ---------------------------------------------------------------------------
 
 
+def _bucket_row(
+    label: str,
+    *,
+    total: tuple[int, int] = (0, 0),
+    carevue: tuple[int, int] = (0, 0),
+    metavision: tuple[int, int] = (0, 0),
+) -> dict:
+    """Build a BucketRow. Each tuple is (clinical_narrative, imaging_only)."""
+    return {
+        "label": label,
+        "total": {"clinical_narrative": total[0], "imaging_only": total[1]},
+        "carevue": {"clinical_narrative": carevue[0], "imaging_only": carevue[1]},
+        "metavision": {
+            "clinical_narrative": metavision[0],
+            "imaging_only": metavision[1],
+        },
+    }
+
+
 class TestPrintBucketedAvailability:
     def test_renders_header_data_and_total_rows(self, capsys):
         breakdown = {
             "rows": [
-                {"label": "<3 days", "clinical_narrative": 4, "imaging_only": 1},
-                {"label": "3 to 4 days", "clinical_narrative": 6, "imaging_only": 4},
+                _bucket_row(
+                    "<3 days",
+                    total=(4, 1),
+                    carevue=(2, 1),
+                    metavision=(2, 0),
+                ),
+                _bucket_row(
+                    "3 to 4 days",
+                    total=(6, 4),
+                    carevue=(3, 2),
+                    metavision=(3, 2),
+                ),
             ],
-            "excluded": 0,
+            "excluded": {"total": 0, "carevue": 0, "metavision": 0},
         }
-        _print_bucketed_availability(
-            "By LOS bucket (MetaVision only):",
-            breakdown,
-            excluded_descriptor="missing or invalid LOS",
-        )
+        _print_bucketed_availability("By LOS bucket:", breakdown)
         out = capsys.readouterr().out
-        assert "By LOS bucket (MetaVision only):" in out
-        assert "clinical_narrative" in out
-        assert "imaging_only" in out
-        # Per-row percentage on the first bucket: 4 / 5 = 80.0%.
-        assert "80.0%" in out
-        # Total row sums clinical_narrative + imaging_only across buckets.
-        assert "Total" in out
-        assert "10" in out  # clinical_narrative total
-        assert "5" in out  # imaging_only total
-        # No exclusion comment when nothing was excluded.
-        assert "excluded" not in out
+        assert "By LOS bucket:" in out
+        assert "All count" in out
+        assert "MetaVision count" in out
+        assert "clin_narr %" in out
+        # <3 days bucket clinical_narrative %: 4/5 = 80.0.
+        assert "80.0" in out
+        # Total row counts (Total / CareVue / MetaVision) anchored against
+        # the literal Total prefix so substrings inside other rows do not match.
+        assert "Total        15" in out
+        assert "Mixed and No-ICU systems are aggregated" in out
+        assert "admissions excluded due to missing value" not in out
 
     def test_renders_excluded_comment(self, capsys):
         breakdown = {
             "rows": [
-                {"label": "<3 days", "clinical_narrative": 1, "imaging_only": 0},
+                _bucket_row("<3 days", total=(1, 0), metavision=(1, 0)),
             ],
-            "excluded": 7,
+            "excluded": {"total": 7, "carevue": 4, "metavision": 3},
         }
-        _print_bucketed_availability(
-            "By LOS bucket (MetaVision only):",
-            breakdown,
-            excluded_descriptor="missing or invalid LOS",
-        )
+        _print_bucketed_availability("By LOS bucket:", breakdown)
         out = capsys.readouterr().out
-        assert "7 admissions excluded due to missing or invalid LOS" in out
+        assert "admissions excluded due to missing value" in out
+        assert "7 total" in out
+        assert "4 CareVue" in out
+        assert "3 MetaVision" in out
+        # Per-system excluded counts surfaced in the comment.
+        assert "7 total" in out
+        assert "4 CareVue" in out
+        assert "3 MetaVision" in out

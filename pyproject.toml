@@ -8,6 +8,7 @@ authors = [{ name = "Christian Garbin" }]
 dependencies = [
     "duckdb",
     "pandas",
+    "tabulate",
 ]
 
 [build-system]

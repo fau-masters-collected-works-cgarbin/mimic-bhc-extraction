@@ -16,6 +16,7 @@ from mimic_bhc.population_stats import (
     load_admissions,
     load_icu_dbsource,
     load_note_category_availability,
+    load_per_admission_note_volume,
 )
 from mimic_bhc.structure import StructureResult
 
@@ -336,20 +337,12 @@ class TestComputePopulationStats:
         assert stats["mortality"]["total"] == 0
 
 
-# ---------------------------------------------------------------------------
-# MetaVision-only length-stratified breakdowns
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture
 def bucket_paths(tmp_path):
     """ADMISSIONS, NOTEEVENTS, and ICUSTAYS for the boundary-test universe.
 
-    Returns ``(admissions, noteevents, icustays)`` paths. The 14 hadm_ids span
-    every LOS bucket boundary using the inclusive lower- and upper-bound LOS
-    values for each bucket. Note-category is held constant (clinical_narrative
-    via Nursing notes) so the LOS/length tests do not need to coordinate which
-    side of the column each bucket sits on. All admissions are MetaVision.
+    All seeded admissions are MetaVision and clinical_narrative, so the
+    Total and MetaVision columns match and the CareVue column stays empty.
     """
     los_rows = [
         (1000, 0),
@@ -393,6 +386,11 @@ def bucket_paths(tmp_path):
 
 
 class TestLengthStratifiedBreakdowns:
+    @staticmethod
+    def _bucket_total(row, column):
+        counts = row[column]
+        return counts["clinical_narrative"] + counts["imaging_only"]
+
     def test_breakdowns_absent_without_icustays(self, admissions_gz, noteevents_gz):
         """No icustays_path: by_los_bucket / by_bhc_length_bucket are None."""
         results = [_result(hadm_id=100, subject_id=10)]
@@ -406,7 +404,7 @@ class TestLengthStratifiedBreakdowns:
         assert nca["by_bhc_length_bucket"] is None
 
     def test_los_buckets_have_expected_boundaries(self, bucket_paths):
-        """Every LOS bucket gets exactly the two boundary admissions seeded."""
+        """Every LOS bucket gets exactly the two seeded boundary admissions."""
         admissions, noteevents, icustays = bucket_paths
         results = [_result(hadm_id=h, subject_id=h // 10) for h in range(1000, 1014)]
         stats = compute_population_stats(
@@ -419,7 +417,6 @@ class TestLengthStratifiedBreakdowns:
         assert breakdown is not None
 
         per_label = {row["label"]: row for row in breakdown["rows"]}
-        # Each bucket has exactly two seeded admissions, all clinical_narrative.
         for label in (
             "<3 days",
             "3 to 4 days",
@@ -429,28 +426,27 @@ class TestLengthStratifiedBreakdowns:
             "14 to 20 days",
             "21+ days",
         ):
-            assert per_label[label]["clinical_narrative"] == 2, label
-            assert per_label[label]["imaging_only"] == 0, label
+            assert per_label[label]["metavision"]["clinical_narrative"] == 2, label
+        assert sum(self._bucket_total(r, "carevue") for r in breakdown["rows"]) == 0
 
-    def test_bhc_length_buckets_have_expected_boundaries(self, bucket_paths):
-        """Each BHC-length bucket gets exactly the seeded boundary admissions."""
+    def test_bhc_length_buckets_route_each_admission_into_its_bucket(self, bucket_paths):
+        """Smoke check: every BHC-length bucket sees exactly two admissions."""
         admissions, noteevents, icustays = bucket_paths
-        # BHC char counts chosen on each bucket boundary.
         char_counts = {
-            1000: 0,  # <500
-            1001: 499,  # <500
-            1002: 500,  # 500 to 999
-            1003: 999,  # 500 to 999
-            1004: 1000,  # 1,000 to 1,999
-            1005: 1999,  # 1,000 to 1,999
-            1006: 2000,  # 2,000 to 2,999
-            1007: 2999,  # 2,000 to 2,999
-            1008: 3000,  # 3,000 to 4,999
-            1009: 4999,  # 3,000 to 4,999
-            1010: 5000,  # 5,000 to 9,999
-            1011: 9999,  # 5,000 to 9,999
-            1012: 10_000,  # 10,000+
-            1013: 50_000,  # 10,000+
+            1000: 0,
+            1001: 499,
+            1002: 500,
+            1003: 999,
+            1004: 1000,
+            1005: 1999,
+            1006: 2000,
+            1007: 2999,
+            1008: 3000,
+            1009: 4999,
+            1010: 5000,
+            1011: 9999,
+            1012: 10_000,
+            1013: 50_000,
         }
         results = [
             _result(hadm_id=h, subject_id=h // 10, bhc_char_count=char_counts[h])
@@ -464,7 +460,9 @@ class TestLengthStratifiedBreakdowns:
         )
         breakdown = stats["note_category_availability"]["by_bhc_length_bucket"]
         assert breakdown is not None
-        per_label = {row["label"]: row for row in breakdown["rows"]}
+        per_label = {
+            row["label"]: row["metavision"]["clinical_narrative"] for row in breakdown["rows"]
+        }
         for label in (
             "<500 chars",
             "500 to 999",
@@ -474,51 +472,16 @@ class TestLengthStratifiedBreakdowns:
             "5,000 to 9,999",
             "10,000+ chars",
         ):
-            assert per_label[label]["clinical_narrative"] == 2, label
-            assert per_label[label]["imaging_only"] == 0, label
+            assert per_label[label] == 2, label
 
-    def test_bucket_breakdowns_exclude_non_metavision(
+    def test_bucket_column_totals_match_by_dbsource(
         self, admissions_gz, noteevents_gz, icustays_gz
     ):
-        """CareVue and mixed admissions are dropped before bucketing.
+        """Each system column reconciles with its by-ICU-system total.
 
-        Fixture has hadm 100 (carevue, LOS 5), 200 (metavision, LOS 1), 300
-        (metavision, LOS 10). The MetaVision-only LOS buckets must therefore
-        contain only the two metavision rows: 1 in '<3 days', 1 in
-        '10 to 13 days'.
-        """
-        results = [
-            _result(hadm_id=100, subject_id=10),
-            _result(hadm_id=200, subject_id=20),
-            _result(hadm_id=300, subject_id=30),
-        ]
-        stats = compute_population_stats(
-            results,
-            admissions_path=str(admissions_gz),
-            noteevents_path=str(noteevents_gz),
-            icustays_path=str(icustays_gz),
-        )
-        breakdown = stats["note_category_availability"]["by_los_bucket"]
-        assert breakdown is not None
-        per_label = {row["label"]: row for row in breakdown["rows"]}
-        totals = {
-            label: row["clinical_narrative"] + row["imaging_only"]
-            for label, row in per_label.items()
-        }
-        assert totals["<3 days"] == 1  # hadm 200
-        assert totals["10 to 13 days"] == 1  # hadm 300
-        # CareVue hadm 100 (LOS 5) does not show up in the 5 to 6 days bucket.
-        assert totals["5 to 6 days"] == 0
-        # Total over all buckets equals MetaVision admission count.
-        assert sum(totals.values()) == 2
-
-    def test_bucket_row_totals_equal_metavision_total(
-        self, admissions_gz, noteevents_gz, icustays_gz
-    ):
-        """Row counts in the LOS breakdown sum to the MetaVision row total.
-
-        Strongest self-check from the handoff: each new sub-block must sum to
-        the same MetaVision count reported in the by-ICU-system block.
+        Strongest self-check from the handoff. Also pins that hadm 100
+        (carevue, LOS 5) lands in the CareVue column of the 5-to-6 bucket,
+        which would break if bucketing leaked across systems.
         """
         results = [
             _result(hadm_id=100, subject_id=10),
@@ -534,44 +497,57 @@ class TestLengthStratifiedBreakdowns:
         nca = stats["note_category_availability"]
         by_dbsource = nca["by_dbsource"]
         assert by_dbsource is not None
-        metavision_total = (
-            by_dbsource["metavision"]["clinical_narrative"]
-            + by_dbsource["metavision"]["imaging_only"]
-        )
+        per_system_total = {
+            "carevue": (
+                by_dbsource["carevue"]["clinical_narrative"]
+                + by_dbsource["carevue"]["imaging_only"]
+            ),
+            "metavision": (
+                by_dbsource["metavision"]["clinical_narrative"]
+                + by_dbsource["metavision"]["imaging_only"]
+            ),
+            "total": nca["total"],
+        }
         for breakdown_key in ("by_los_bucket", "by_bhc_length_bucket"):
             breakdown = nca[breakdown_key]
             assert breakdown is not None
-            row_sum = sum(r["clinical_narrative"] + r["imaging_only"] for r in breakdown["rows"])
-            assert row_sum + breakdown["excluded"] == metavision_total, breakdown_key
+            for column in ("total", "carevue", "metavision"):
+                row_sum = sum(self._bucket_total(r, column) for r in breakdown["rows"])
+                expected = per_system_total[column]
+                assert row_sum + breakdown["excluded"][column] == expected, (
+                    f"{breakdown_key}/{column}"
+                )
 
-    def test_excluded_counts_missing_los(self, tmp_path):
-        """Admissions with NULL ADMITTIME or DISCHTIME are excluded and counted."""
+        los_per_label = {row["label"]: row for row in nca["by_los_bucket"]["rows"]}
+        assert self._bucket_total(los_per_label["5 to 6 days"], "carevue") == 1
+
+    def test_excluded_counts_missing_los_per_system(self, tmp_path):
+        """Admissions with NULL DISCHTIME are counted as excluded per-system."""
         csv = (
             "ROW_ID,SUBJECT_ID,HADM_ID,ADMITTIME,DISCHTIME,HOSPITAL_EXPIRE_FLAG\n"
-            # hadm 1000: valid LOS = 5
             "1,100,1000,2150-01-01 00:00:00,2150-01-06 00:00:00,0\n"
-            # hadm 1001: missing DISCHTIME -> NaN LOS
             "2,100,1001,2150-01-01 00:00:00,,0\n"
+            "3,100,1002,2150-01-01 00:00:00,,0\n"
         )
         path = tmp_path / "ADMISSIONS.csv.gz"
         with gzip.open(path, "wt") as f:
             f.write(csv)
 
-        # ICUSTAYS for both hadm_ids so they are both metavision.
         icu = (
             "ROW_ID,SUBJECT_ID,HADM_ID,ICUSTAY_ID,DBSOURCE\n"
             "1,100,1000,10000,metavision\n"
             "2,100,1001,10001,metavision\n"
+            "3,100,1002,10002,carevue\n"
         )
         icu_path = tmp_path / "ICUSTAYS.csv.gz"
         with gzip.open(icu_path, "wt") as f:
             f.write(icu)
 
-        # NOTEEVENTS for both hadm_ids.
         notes = (
             "ROW_ID,SUBJECT_ID,HADM_ID,CATEGORY,TEXT\n"
             "1,100,1000,Nursing,Some text\n"
             "2,100,1001,Nursing,Some text\n"
+            "3,100,1002,Nursing,Some text\n"
         )
         notes_path = tmp_path / "NOTEEVENTS.csv.gz"
         with gzip.open(notes_path, "wt") as f:
@@ -580,6 +556,7 @@ class TestLengthStratifiedBreakdowns:
         results = [
             _result(hadm_id=1000, subject_id=100),
             _result(hadm_id=1001, subject_id=100),
+            _result(hadm_id=1002, subject_id=100),
         ]
         stats = compute_population_stats(
             results,
@@ -589,7 +566,149 @@ class TestLengthStratifiedBreakdowns:
         )
         breakdown = stats["note_category_availability"]["by_los_bucket"]
         assert breakdown is not None
-        # hadm 1000 lands in '5 to 6 days'. hadm 1001 is excluded.
-        per_label = {row["label"]: row for row in breakdown["rows"]}
-        assert per_label["5 to 6 days"]["clinical_narrative"] == 1
-        assert breakdown["excluded"] == 1
+        assert breakdown["excluded"]["metavision"] == 1
+        assert breakdown["excluded"]["carevue"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Per-admission note volume
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def noteevents_volume_gz(tmp_path):
+    """NOTEEVENTS fixture with deterministic note-text lengths.
+
+    Per admission (after excluding the discharge summary):
+
+    - hadm 100: two Nursing notes, 4 + 6 = 10 chars total -> clinical_narrative
+    - hadm 200: one Radiology note, 5 chars total -> imaging_only
+    - hadm 300: discharge summary only -> imaging_only, zero source content
+    """
+    csv = (
+        "ROW_ID,SUBJECT_ID,HADM_ID,CATEGORY,TEXT\n"
+        "1,10,100,Nursing,abcd\n"
+        "2,10,100,Nursing,efghij\n"
+        "3,10,100,Discharge summary,zzz\n"
+        "4,20,200,Radiology,abcde\n"
+        "5,20,200,Discharge summary,zz\n"
+        "6,30,300,Discharge summary,zzzz\n"
+    )
+    path = tmp_path / "NOTEEVENTS.csv.gz"
+    with gzip.open(path, "wt") as f:
+        f.write(csv)
+    return path
+
+
+class TestLoadPerAdmissionNoteVolume:
+    def test_excludes_discharge_summary_and_aggregates_per_admission(self, noteevents_volume_gz):
+        df = load_per_admission_note_volume(str(noteevents_volume_gz), {100, 200, 300})
+        assert df.loc[100, "note_count"] == 2
+        assert df.loc[100, "note_chars"] == 10
+        assert df.loc[200, "note_count"] == 1
+        assert df.loc[200, "note_chars"] == 5
+        # hadm 300 has only a discharge summary, so the loader returns no
+        # row for it. Callers fill the missing index with zeros.
+        assert 300 not in df.index
+
+
+class TestNoteVolumeStats:
+    @pytest.fixture
+    def admissions_with_volume(self, tmp_path):
+        csv = (
+            "ROW_ID,SUBJECT_ID,HADM_ID,ADMITTIME,DISCHTIME,HOSPITAL_EXPIRE_FLAG\n"
+            "1,10,100,2150-01-01 00:00:00,2150-01-06 00:00:00,0\n"
+            "2,20,200,2150-02-01 00:00:00,2150-02-02 00:00:00,1\n"
+            "3,30,300,2150-03-01 00:00:00,2150-03-11 00:00:00,0\n"
+        )
+        path = tmp_path / "ADMISSIONS.csv.gz"
+        with gzip.open(path, "wt") as f:
+            f.write(csv)
+        return path
+
+    @pytest.fixture
+    def icustays_volume_gz(self, tmp_path):
+        csv = (
+            "ROW_ID,SUBJECT_ID,HADM_ID,ICUSTAY_ID,DBSOURCE\n"
+            "1,10,100,1000,carevue\n"
+            "2,20,200,2000,metavision\n"
+            "3,30,300,3000,metavision\n"
+        )
+        path = tmp_path / "ICUSTAYS.csv.gz"
+        with gzip.open(path, "wt") as f:
+            f.write(csv)
+        return path
+
+    def test_distributions_split_by_system_and_class(
+        self, admissions_with_volume, noteevents_volume_gz, icustays_volume_gz
+    ):
+        """clin_narr distribution covers hadm 100 only; imaging_only covers 200 and 300."""
+        results = [
+            _result(hadm_id=100, subject_id=10),
+            _result(hadm_id=200, subject_id=20),
+            _result(hadm_id=300, subject_id=30),
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_with_volume),
+            noteevents_path=str(noteevents_volume_gz),
+            icustays_path=str(icustays_volume_gz),
+        )
+        volume = stats["note_volume"]
+        cn_all = volume["note_count"]["total"][CLINICAL_NARRATIVE]
+        assert cn_all["n"] == 1
+        assert cn_all["min"] == 2
+        assert cn_all["max"] == 2
+
+        # CareVue clin_narr: hadm 100 (2 notes, 10 chars)
+        chars_cv_cn = volume["note_chars"]["carevue"][CLINICAL_NARRATIVE]
+        assert chars_cv_cn["n"] == 1
+        assert chars_cv_cn["median"] == 10
+        # CareVue has no imaging_only admissions in the fixture.
+        assert volume["note_chars"]["carevue"][IMAGING_ONLY]["n"] == 0
+
+        # MetaVision imaging_only: hadm 200 (1 note, 5 chars) and hadm 300
+        # (discharge-summary only, fills as 0). Median = 2.5, min = 0.
+        mv_io = volume["note_chars"]["metavision"][IMAGING_ONLY]
+        assert mv_io["n"] == 2
+        assert mv_io["min"] == 0
+        assert mv_io["max"] == 5
+
+    def test_n_reconciles_with_by_dbsource(
+        self, admissions_with_volume, noteevents_volume_gz, icustays_volume_gz
+    ):
+        """clin_narr.n + imaging_only.n per system equals that system's by_dbsource total."""
+        results = [
+            _result(hadm_id=100, subject_id=10),
+            _result(hadm_id=200, subject_id=20),
+            _result(hadm_id=300, subject_id=30),
+        ]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_with_volume),
+            noteevents_path=str(noteevents_volume_gz),
+            icustays_path=str(icustays_volume_gz),
+        )
+        by_dbsource = stats["note_category_availability"]["by_dbsource"]
+        assert by_dbsource is not None
+        for system_key, dbsource in (("carevue", "carevue"), ("metavision", "metavision")):
+            expected = (
+                by_dbsource[dbsource][CLINICAL_NARRATIVE] + by_dbsource[dbsource][IMAGING_ONLY]
+            )
+            actual = (
+                stats["note_volume"]["note_count"][system_key][CLINICAL_NARRATIVE]["n"]
+                + stats["note_volume"]["note_count"][system_key][IMAGING_ONLY]["n"]
+            )
+            assert actual == expected, system_key
+
+    def test_carevue_metavision_omitted_without_icustays(
+        self, admissions_with_volume, noteevents_volume_gz
+    ):
+        """No ICUSTAYS path: only the All-systems system bucket is emitted."""
+        results = [_result(hadm_id=100, subject_id=10)]
+        stats = compute_population_stats(
+            results,
+            admissions_path=str(admissions_with_volume),
+            noteevents_path=str(noteevents_volume_gz),
+        )
+        assert set(stats["note_volume"]["note_count"]) == {"total"}

@@ -6,23 +6,42 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, TypedDict
 
+from tabulate import tabulate
+
 from mimic_bhc.batch import extract_from_file
 from mimic_bhc.discovery import discover_headers_from_file
 from mimic_bhc.io import write_results
+from mimic_bhc.population_stats import (
+    BUCKET_COLUMN_CAREVUE,
+    BUCKET_COLUMN_METAVISION,
+    BUCKET_COLUMN_TOTAL,
+    CLINICAL_NARRATIVE,
+    IMAGING_ONLY,
+)
 
 if TYPE_CHECKING:
     from mimic_bhc.population_stats import (
         BucketedAvailability,
+        DistributionStats,
+        FormatByNoteCategory,
+        LosStats,
+        MortalityStats,
+        NoteCategoryAvailability,
+        NoteVolumeStats,
         PatientConcentration,
-        PopulationStats,
     )
+    from mimic_bhc.stats import BHCStats
 
-# Column widths for the length-stratified bucket breakdowns. Kept at module
-# scope so the header, data rows, and totals row use the same alignment.
-_BUCKET_LABEL_W = 22
-_BUCKET_CLINICAL_NARRATIVE_W = 20
-_BUCKET_IMAGING_ONLY_W = 20
-_BUCKET_TOTAL_W = 10
+_TABLE_INDENT = "    "
+_TABLE_FMT = "simple"
+_BUCKET_EXCLUSION_NOTE = (
+    '(Mixed and No-ICU systems are aggregated in the "By ICU system" block above.)'
+)
+_BUCKET_PRINT_COLUMNS: tuple[str, ...] = (
+    BUCKET_COLUMN_TOTAL,
+    BUCKET_COLUMN_CAREVUE,
+    BUCKET_COLUMN_METAVISION,
+)
 
 
 class _ResolvedMimicPaths(TypedDict):
@@ -72,7 +91,7 @@ def _run_discover(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
+def _run_stats(args: argparse.Namespace) -> int:
     """Run the stats subcommand."""
     from mimic_bhc.io import load_results
     from mimic_bhc.population_stats import (
@@ -87,26 +106,47 @@ def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
         return 0
     stats = compute_bhc_stats(results)
 
-    # Summary
+    _print_extraction_diagnostics(stats)
+    _print_bhc_text_properties(stats)
+
+    paths = _resolve_mimic_paths(args)
+    pop_stats = None
+    if paths:
+        pop_stats = compute_population_stats(
+            results,
+            admissions_path=paths["admissions"],
+            noteevents_path=paths["noteevents"],
+            icustays_path=paths["icustays"],
+        )
+        _print_note_category_availability(pop_stats["note_category_availability"])
+        _print_los(pop_stats["los_distribution"])
+        _print_mortality(pop_stats["mortality"])
+    _print_patient_concentration(compute_patient_concentration(results))
+
+    if pop_stats is not None:
+        _print_note_volume(pop_stats["note_volume"])
+        _print_format_cross_tab(pop_stats["format_by_note_category"])
+
+    return 0
+
+
+def _print_extraction_diagnostics(stats: BHCStats) -> None:
     pct = stats["success_rate"] * 100
     print(f"Total admissions:  {stats['total']:,}")
     print(f"Successful:        {stats['successes']:,} ({pct:.1f}%)")
     print(f"Failed:            {stats['failures']:,} ({100 - pct:.1f}%)")
 
-    # Failure reasons
     if stats["failure_reasons"]:
         print("\nFailure reasons:")
         for reason, count in sorted(stats["failure_reasons"].items(), key=lambda x: -x[1]):
             print(f"  {reason:<20} {count:>8,}")
 
-    # Start header distribution
     successes = stats["successes"]
     if stats["header_distribution"]:
         print("\nStart headers:")
         for header, count in sorted(stats["header_distribution"].items(), key=lambda x: -x[1]):
             print(f"  {header:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
 
-    # End header distribution
     if stats["end_header_distribution"]:
         print("\nEnd headers:")
         for header, count in sorted(stats["end_header_distribution"].items(), key=lambda x: -x[1]):
@@ -115,7 +155,8 @@ def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
         ub = stats["unbounded_extractions"]
         print(f"  {'(unbounded)':<40} {ub:>8,} ({100 * ub / successes:>5.1f}%)")
 
-    # BHC length stats
+
+def _print_bhc_text_properties(stats: BHCStats) -> None:
     length = stats["bhc_length_stats"]
     if length:
         print("\nBHC length (characters):")
@@ -127,28 +168,11 @@ def _run_stats(args: argparse.Namespace) -> int:  # noqa: C901, PLR0912
     if stats["short_extractions"] > 0:
         print(f"  Short extractions (<100 chars): {stats['short_extractions']:,}")
 
-    # Structure distribution
+    successes = stats["successes"]
     if stats["format_distribution"]:
         print("\nStructure distribution:")
         for fmt, count in sorted(stats["format_distribution"].items(), key=lambda x: -x[1]):
             print(f"  {fmt:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
-
-    # Resolve MIMIC source paths from --mimic-dir or individual flags.
-    paths = _resolve_mimic_paths(args)
-    if paths:
-        pop_stats = compute_population_stats(
-            results,
-            admissions_path=paths["admissions"],
-            noteevents_path=paths["noteevents"],
-            icustays_path=paths["icustays"],
-        )
-        _print_population_stats(pop_stats)
-
-    # Patient concentration: pure on BHCResult, always shown.
-    concentration = compute_patient_concentration(results)
-    _print_patient_concentration(concentration)
-
-    return 0
 
 
 def _resolve_mimic_paths(args: argparse.Namespace) -> _ResolvedMimicPaths | None:
@@ -190,9 +214,7 @@ def _resolve_mimic_paths(args: argparse.Namespace) -> _ResolvedMimicPaths | None
     return {"admissions": admissions, "noteevents": noteevents, "icustays": icustays}
 
 
-def _print_population_stats(pop_stats: PopulationStats) -> None:
-    """Print the four MIMIC-derived population statistics blocks."""
-    nca = pop_stats["note_category_availability"]
+def _print_note_category_availability(nca: NoteCategoryAvailability) -> None:
     total_nca = nca["total"]
     print("\nNote-category availability:")
     for label in ("clinical_narrative", "imaging_only"):
@@ -203,7 +225,6 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
 
     by_dbsource = nca["by_dbsource"]
     if by_dbsource:
-        # Display order: CareVue first, MetaVision second; other buckets after.
         ordered = [k for k in ("carevue", "metavision") if k in by_dbsource]
         ordered.extend(k for k in by_dbsource if k not in {"carevue", "metavision"})
 
@@ -225,18 +246,17 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
 
     if nca["by_los_bucket"] is not None:
         _print_bucketed_availability(
-            "By LOS bucket (MetaVision only):",
+            "By LOS bucket (clinical_narrative % within each bucket and system):",
             nca["by_los_bucket"],
-            excluded_descriptor="missing LOS",
         )
     if nca["by_bhc_length_bucket"] is not None:
         _print_bucketed_availability(
-            "By BHC length bucket (MetaVision only):",
+            "By BHC length bucket (clinical_narrative % within each bucket and system):",
             nca["by_bhc_length_bucket"],
-            excluded_descriptor="missing BHC length",
         )
 
-    los = pop_stats["los_distribution"]
+
+def _print_los(los: LosStats) -> None:
     los_total = los["total"]
     print("\nLength of stay (days):")
     print(
@@ -248,26 +268,8 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
         f"  {'Admissions with LOS < 3 days:':<40} {los['lt_3_days']:>8,} ({short_los_pct:>5.1f}%)"
     )
 
-    cross = pop_stats["format_by_note_category"]
-    cells = cross["cells"]
-    row_totals = cross["row_totals"]
-    col_totals = cross["col_totals"]
-    grand = cross["grand_total"]
-    print("\nBHC format by note-category availability (templates excluded):")
-    print(f"  {'':<22}{'clinical_narrative':>20}{'imaging_only':>15}{'Total':>10}")
-    for fmt in ("narrative", "domain_organized"):
-        cn = cells[fmt]["clinical_narrative"]
-        io_ = cells[fmt]["imaging_only"]
-        rt = row_totals[fmt]
-        print(f"  {fmt:<22}{cn:>20,}{io_:>15,}{rt:>10,}")
-    print(
-        f"  {'Total':<22}"
-        f"{col_totals['clinical_narrative']:>20,}"
-        f"{col_totals['imaging_only']:>15,}"
-        f"{grand:>10,}"
-    )
 
-    mort = pop_stats["mortality"]
+def _print_mortality(mort: MortalityStats) -> None:
     print("\nMortality:")
     mort_total = mort["total"]
     mort_pct = 100 * mort["deaths"] / mort_total if mort_total else 0.0
@@ -277,54 +279,147 @@ def _print_population_stats(pop_stats: PopulationStats) -> None:
     )
 
 
-def _print_bucketed_availability(
-    title: str,
-    breakdown: BucketedAvailability,
-    *,
-    excluded_descriptor: str,
-) -> None:
-    """Print a length-stratified note-category breakdown.
-
-    Layout matches the existing two-space indentation. Each cell shows the
-    count and the row-relative percentage. The trailing Total row shows
-    column totals without percentages.
-    """
-    label_w = _BUCKET_LABEL_W
-    cn_w = _BUCKET_CLINICAL_NARRATIVE_W
-    im_w = _BUCKET_IMAGING_ONLY_W
-    tot_w = _BUCKET_TOTAL_W
-    print(f"\n  {title}")
+def _print_note_volume(volume: NoteVolumeStats) -> None:
     print(
-        f"    {'':<{label_w}}"
-        f"{'clinical_narrative':>{cn_w}}"
-        f"{'imaging_only':>{im_w}}"
-        f"{'Total':>{tot_w}}"
+        "\nSource-record content per admission by note-category class (discharge summary excluded):"
     )
-    col_cn = 0
-    col_imaging = 0
-    col_tot = 0
+    _print_volume_table("Note count per admission:", volume["note_count"])
+    _print_volume_table("Note characters per admission:", volume["note_chars"])
+    print(f"{_TABLE_INDENT}{_BUCKET_EXCLUSION_NOTE}")
+
+
+def _print_volume_table(title: str, table: dict[str, dict[str, DistributionStats]]) -> None:
+    print(f"\n  {title}")
+    headers = ["System", "Class", "Median", "Mean", "Q25", "Q75", "Q90", "Min", "Max", "n"]
+    system_labels = (
+        (BUCKET_COLUMN_TOTAL, "All systems"),
+        (BUCKET_COLUMN_CAREVUE, "CareVue"),
+        (BUCKET_COLUMN_METAVISION, "MetaVision"),
+    )
+    class_labels = (
+        (CLINICAL_NARRATIVE, "clin_narr"),
+        (IMAGING_ONLY, "imaging_only"),
+    )
+    rows: list[list[str]] = []
+    for system_key, system_label in system_labels:
+        if system_key not in table:
+            continue
+        for class_key, class_label in class_labels:
+            d = table[system_key][class_key]
+            rows.append(
+                [
+                    system_label,
+                    class_label,
+                    f"{d['median']:,.1f}",
+                    f"{d['mean']:,.1f}",
+                    f"{d['p25']:,.1f}",
+                    f"{d['p75']:,.1f}",
+                    f"{d['p90']:,.1f}",
+                    f"{d['min']:,}",
+                    f"{d['max']:,}",
+                    f"{d['n']:,}",
+                ]
+            )
+    _print_indented_table(rows, headers)
+
+
+def _print_format_cross_tab(cross: FormatByNoteCategory) -> None:
+    cells = cross["cells"]
+    row_totals = cross["row_totals"]
+    col_totals = cross["col_totals"]
+    grand = cross["grand_total"]
+    print("\nBHC format by note-category availability (templates excluded):")
+    headers = ["Format", "clinical_narrative", "imaging_only", "Total"]
+    rows = [
+        [
+            fmt,
+            f"{cells[fmt]['clinical_narrative']:,}",
+            f"{cells[fmt]['imaging_only']:,}",
+            f"{row_totals[fmt]:,}",
+        ]
+        for fmt in ("narrative", "domain_organized")
+    ]
+    rows.append(
+        [
+            "Total",
+            f"{col_totals['clinical_narrative']:,}",
+            f"{col_totals['imaging_only']:,}",
+            f"{grand:,}",
+        ]
+    )
+    _print_indented_table(rows, headers)
+
+
+def _print_bucketed_availability(title: str, breakdown: BucketedAvailability) -> None:
+    print(f"\n  {title}")
+    headers = [
+        "Bucket",
+        "All count",
+        "clin_narr %",
+        "CareVue count",
+        "clin_narr %",
+        "MetaVision count",
+        "clin_narr %",
+    ]
+    column_totals: dict[str, int] = dict.fromkeys(_BUCKET_PRINT_COLUMNS, 0)
+    rows: list[list[str]] = []
     for row in breakdown["rows"]:
-        cn = row["clinical_narrative"]
-        imaging = row["imaging_only"]
-        tot = cn + imaging
-        cn_pct = 100 * cn / tot if tot else 0.0
-        imaging_pct = 100 * imaging / tot if tot else 0.0
-        cn_cell = f"{cn:>6,} ({cn_pct:>5.1f}%)"
-        imaging_cell = f"{imaging:>6,} ({imaging_pct:>5.1f}%)"
-        print(
-            f"    {row['label']:<{label_w}}{cn_cell:>{cn_w}}{imaging_cell:>{im_w}}{tot:>{tot_w},}"
+        cells: list[str] = [row["label"]]
+        total = row["total"]["clinical_narrative"] + row["total"]["imaging_only"]
+        carevue = row["carevue"]["clinical_narrative"] + row["carevue"]["imaging_only"]
+        metavision = row["metavision"]["clinical_narrative"] + row["metavision"]["imaging_only"]
+        column_totals[BUCKET_COLUMN_TOTAL] += total
+        column_totals[BUCKET_COLUMN_CAREVUE] += carevue
+        column_totals[BUCKET_COLUMN_METAVISION] += metavision
+        cells.extend([f"{total:,}", _percent_str(row["total"]["clinical_narrative"], total)])
+        cells.extend([f"{carevue:,}", _percent_str(row["carevue"]["clinical_narrative"], carevue)])
+        cells.extend(
+            [f"{metavision:,}", _percent_str(row["metavision"]["clinical_narrative"], metavision)]
         )
-        col_cn += cn
-        col_imaging += imaging
-        col_tot += tot
-    print(f"    {'Total':<{label_w}}{col_cn:>{cn_w},}{col_imaging:>{im_w},}{col_tot:>{tot_w},}")
+        rows.append(cells)
+
+    total_row: list[str] = ["Total"]
+    for col in _BUCKET_PRINT_COLUMNS:
+        total_row.extend([f"{column_totals[col]:,}", ""])
+    rows.append(total_row)
+
+    _print_indented_table(rows, headers)
+    print(f"{_TABLE_INDENT}{_BUCKET_EXCLUSION_NOTE}")
     excluded = breakdown["excluded"]
-    if excluded:
-        print(f"    ({excluded:,} admissions excluded due to {excluded_descriptor})")
+    if any(excluded.values()):
+        excluded_str = ", ".join(
+            f"{excluded[col]:,} {label}"
+            for col, label in (
+                (BUCKET_COLUMN_TOTAL, "total"),
+                (BUCKET_COLUMN_CAREVUE, "CareVue"),
+                (BUCKET_COLUMN_METAVISION, "MetaVision"),
+            )
+            if excluded[col]
+        )
+        print(f"{_TABLE_INDENT}({excluded_str} admissions excluded due to missing value)")
+
+
+def _print_indented_table(rows: list[list[str]], headers: list[str]) -> None:
+    # disable_numparse keeps pre-formatted percentage strings like "80.0"
+    # intact. Without it tabulate would re-parse them as floats and strip
+    # the trailing zero, breaking the .1f alignment across the column.
+    table_str = tabulate(
+        rows,
+        headers=headers,
+        tablefmt=_TABLE_FMT,
+        disable_numparse=True,
+    )
+    indented = "\n".join(f"{_TABLE_INDENT}{line}" for line in table_str.splitlines())
+    print(indented)
+
+
+def _percent_str(numerator: int, denominator: int) -> str:
+    if denominator == 0:
+        return "0.0"
+    return f"{100 * numerator / denominator:.1f}"
 
 
 def _print_patient_concentration(concentration: PatientConcentration) -> None:
-    """Print the patient-concentration block (always available)."""
     distinct = concentration["distinct_patients"]
     print("\nPatient concentration:")
     print(f"  {'Distinct patients:':<40} {distinct:>8,}")
