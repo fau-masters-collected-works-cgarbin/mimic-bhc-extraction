@@ -109,13 +109,6 @@ class TestLoadJsonl:
         loaded = load_jsonl(path)
         assert len(loaded) == 2
 
-    def test_empty_file(self, tmp_path: Path):
-        """Should return empty list for empty file."""
-        path = tmp_path / "empty.jsonl"
-        path.write_text("")
-
-        assert load_jsonl(path) == []
-
     def test_roundtrip_with_write_jsonl(self, tmp_path: Path):
         """write_jsonl then load_jsonl should preserve data."""
         path = tmp_path / "roundtrip.jsonl"

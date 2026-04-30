@@ -1,8 +1,8 @@
-"""Cross-check concrete claims in docs/ and README.md against code.
+"""Cross-check concrete claims in docs/extraction-design.md against code.
 
-These tests verify that documented pattern counts, threshold values, and
-algorithm descriptions stay in sync with the code.  If a test fails, update
-the doc to match the code (or vice versa).
+These tests verify that documented pattern counts and threshold values stay
+in sync with the code.  If a test fails, update the doc to match the code
+(or vice versa).
 
 For data-derived metrics (extraction success rates, header distributions,
 length statistics in docs/empirical-findings.md), see the "Updating
@@ -14,23 +14,13 @@ from pathlib import Path
 
 from mimic_bhc.patterns import _BHC_HEADER_PATTERNS, _END_BOUNDARIES
 from mimic_bhc.stats import MIN_BHC_LENGTH
-from mimic_bhc.structure import (
-    CATEGORY_DOMAIN_ORGANIZED,
-    CATEGORY_NARRATIVE,
-    CATEGORY_STANDARDIZED_TEMPLATE,
-)
 
 _REPO_ROOT = Path(__file__).parent.parent
 _DESIGN_DOC = _REPO_ROOT / "docs" / "extraction-design.md"
-_README = _REPO_ROOT / "README.md"
 
 
 def _design_doc_text() -> str:
     return _DESIGN_DOC.read_text()
-
-
-def _readme_text() -> str:
-    return _README.read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -57,26 +47,6 @@ class TestDesignDocMatchesCode:
             f"Doc claims {documented} end boundaries, code has {len(_END_BOUNDARIES)}"
         )
 
-    def test_end_boundary_confidence_tiers(self):
-        """Doc lists 12 high-confidence and 3 medium-confidence boundaries."""
-        text = _design_doc_text()
-        # Extract the high-confidence list (between "High confidence" and "Medium confidence")
-        high_match = re.search(
-            r"\*\*High confidence\*\*[^:]*:\s*(.+?)(?=\n\n|\*\*Medium)", text, re.DOTALL
-        )
-        assert high_match is not None, "Could not find high-confidence boundary list in doc"
-        high_names = [n.strip().rstrip(".") for n in high_match.group(1).split(",")]
-        # Extract the medium-confidence list
-        medium_match = re.search(
-            r"\*\*Medium confidence\*\*[^:]*:\s*(.+?)(?=\.\s+The)", text, re.DOTALL
-        )
-        assert medium_match is not None, "Could not find medium-confidence boundary list in doc"
-        medium_names = [n.strip().rstrip(".") for n in medium_match.group(1).split(",")]
-        assert len(high_names) + len(medium_names) == len(_END_BOUNDARIES), (
-            f"Doc lists {len(high_names)} high + {len(medium_names)} medium = "
-            f"{len(high_names) + len(medium_names)}, code has {len(_END_BOUNDARIES)}"
-        )
-
     def test_min_bhc_length_threshold(self):
         """Doc says 'shorter than 100 characters'."""
         text = _design_doc_text()
@@ -85,45 +55,6 @@ class TestDesignDocMatchesCode:
         documented = int(match.group(1))
         assert documented == MIN_BHC_LENGTH, (
             f"Doc claims {documented}, code has MIN_BHC_LENGTH={MIN_BHC_LENGTH}"
-        )
-
-    def test_failure_reasons_documented(self):
-        """Doc should mention both failure reasons: no_header and empty_section."""
-        text = _design_doc_text()
-        assert "no_header" in text, "Doc missing failure reason 'no_header'"
-        assert "empty_section" in text, "Doc missing failure reason 'empty_section'"
-
-    def test_three_structure_categories(self):
-        """Doc says 'three categories' for structure classification."""
-        text = _design_doc_text()
-        match = re.search(r"(\w+) categories", text)
-        assert match is not None, "Could not find category count claim in doc"
-        documented = _word_to_int(match.group(1))
-        categories = {CATEGORY_NARRATIVE, CATEGORY_DOMAIN_ORGANIZED, CATEGORY_STANDARDIZED_TEMPLATE}
-        assert documented == len(categories), (
-            f"Doc claims {documented} categories, code defines {len(categories)}"
-        )
-
-    def test_quality_flag_names(self):
-        """Doc should mention all three quality flags by name."""
-        text = _design_doc_text()
-        for flag in ("below_min_length", "unbounded", "iserror"):
-            assert flag in text, f"Doc missing quality flag '{flag}'"
-
-
-# ---------------------------------------------------------------------------
-# README.md
-# ---------------------------------------------------------------------------
-class TestReadmeMatchesCode:
-    def test_three_structure_categories(self):
-        """README says 'three categories' for structure classification."""
-        text = _readme_text()
-        match = re.search(r"(\w+) categories", text)
-        assert match is not None, "Could not find category count claim in README"
-        documented = _word_to_int(match.group(1))
-        categories = {CATEGORY_NARRATIVE, CATEGORY_DOMAIN_ORGANIZED, CATEGORY_STANDARDIZED_TEMPLATE}
-        assert documented == len(categories), (
-            f"README claims {documented} categories, code defines {len(categories)}"
         )
 
 

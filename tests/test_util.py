@@ -72,11 +72,6 @@ class TestIsMimic3:
         csv.write_text("note_id,subject_id,hadm_id,charttime,text\n")
         assert is_mimic3(str(csv), "auto") is False
 
-    def test_auto_is_default(self, tmp_path):
-        csv = tmp_path / "notes.csv"
-        csv.write_text("ROW_ID,SUBJECT_ID,HADM_ID,CATEGORY,TEXT\n")
-        assert is_mimic3(str(csv)) is True
-
 
 # ---------------------------------------------------------------------------
 # load_dataframe

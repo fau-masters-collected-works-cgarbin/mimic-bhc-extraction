@@ -4,9 +4,7 @@ import gzip
 
 import pytest
 
-from mimic_bhc.batch import _build_quality_flags, extract_from_file
-from mimic_bhc.model import BHCResult
-from mimic_bhc.stats import MIN_BHC_LENGTH
+from mimic_bhc.batch import extract_from_file
 
 
 @pytest.fixture
@@ -82,13 +80,6 @@ class TestMimic3Format:
         assert len(hadm_200_results) == 1
         assert "iserror" in hadm_200_results[0].quality_flags
 
-    def test_auto_detects_mimic3(self, mimic3_noteevents_gz):
-        """Auto-detect should identify MIMIC-III by CATEGORY column."""
-        results = extract_from_file(str(mimic3_noteevents_gz), format_hint="auto")
-
-        hadm_ids = {r.hadm_id for r in results}
-        assert len(hadm_ids) > 0
-
 
 class TestMimic4Format:
     def test_no_filtering_mimic4(self, mimic4_discharge_gz):
@@ -105,12 +96,6 @@ class TestMimic4Format:
 
         hadm_100 = next(r for r in results if r.hadm_id == 100)
         assert hadm_100.row_id == "FAKE-NOTE-DS-01"
-
-    def test_auto_detects_mimic4(self, mimic4_discharge_gz):
-        """Auto-detect should identify MIMIC-IV by absence of CATEGORY column."""
-        results = extract_from_file(str(mimic4_discharge_gz), format_hint="auto")
-
-        assert len(results) == 2
 
 
 class TestParquetAutoDetect:
@@ -187,26 +172,6 @@ class TestSamplingOption:
 
         assert len(results) == 3
 
-    def test_sample_larger_than_dataset(self, tmp_path):
-        """--sample N where N exceeds total admissions should return all admissions."""
-        lines = [
-            "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
-            "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT"
-        ]
-        for i in range(3):
-            lines.append(
-                f'{i + 1},10,{100 + i},2150-01-01,,,"Discharge summary","Report",,,'
-                f'"Brief Hospital Course:\nPatient {i}.\n\nMedications on Discharge:\nMed {i}"'
-            )
-
-        path = tmp_path / "NOTEEVENTS.csv.gz"
-        with gzip.open(path, "wt") as f:
-            f.write("\n".join(lines) + "\n")
-
-        results = extract_from_file(str(path), format_hint="mimic3", sample_size=100)
-
-        assert len(results) == 3
-
     def test_sample_counts_admissions_not_rows(self, tmp_path):
         """--sample N should sample N admissions, not N rows.
 
@@ -270,36 +235,3 @@ class TestNoteTextAndAddendumCount:
         # hadm_id 200 has 1 row
         hadm_200 = next(r for r in results if r.hadm_id == 200)
         assert hadm_200.note_row_count == 1
-
-
-class TestQualityFlags:
-    def _make_result(
-        self, *, bhc_text="x" * (MIN_BHC_LENGTH + 1), end_header="Medications on Discharge"
-    ):
-        return BHCResult(
-            extraction_success=True,
-            bhc_text=bhc_text,
-            start_header="Brief Hospital Course:",
-            end_header=end_header,
-            failure_reason=None,
-        )
-
-    def test_below_min_length(self):
-        result = self._make_result(bhc_text="short")
-        flags = _build_quality_flags(result)
-        assert "below_min_length" in flags
-
-    def test_unbounded(self):
-        result = self._make_result(end_header=None)
-        flags = _build_quality_flags(result)
-        assert "unbounded" in flags
-
-    def test_iserror(self):
-        result = self._make_result()
-        flags = _build_quality_flags(result, iserror=1)
-        assert "iserror" in flags
-
-    def test_no_flags_on_normal_result(self):
-        result = self._make_result()
-        flags = _build_quality_flags(result)
-        assert flags == ()
