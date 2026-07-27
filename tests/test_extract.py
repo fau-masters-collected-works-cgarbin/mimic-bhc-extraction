@@ -200,21 +200,21 @@ class TestExtractBhc:
         assert result.end_header == "Discharge Disposition"
 
     def test_inline_text_after_header(self):
-        """Header with text continuing on the same line after the colon."""
+        """Match a header with text continuing on the same line after the colon."""
         result = extract_bhc(INLINE_TEXT_HEADER_NOTE)
         assert result.extraction_success is True
         assert "sepsis" in result.bhc_text
         assert result.end_header == "Discharge Medications"
 
     def test_summary_of_hospital_course_header(self):
-        """'SUMMARY OF HOSPITAL COURSE' variant header."""
+        """Match the 'SUMMARY OF HOSPITAL COURSE' variant header."""
         result = extract_bhc(SUMMARY_OF_HEADER_NOTE)
         assert result.extraction_success is True
         assert "CHF exacerbation" in result.bhc_text
         assert result.end_header == "Discharge Condition"
 
     def test_concise_summary_header(self):
-        """'CONCISE SUMMARY OF HOSPITAL COURSE' variant header."""
+        """Match the 'CONCISE SUMMARY OF HOSPITAL COURSE' variant header."""
         result = extract_bhc(CONCISE_SUMMARY_HEADER_NOTE)
         assert result.extraction_success is True
         assert "dobutamine" in result.bhc_text

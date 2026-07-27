@@ -4,8 +4,6 @@ from mimic_bhc.discovery import classify_header_role, discover_headers_in_texts
 
 
 class TestClassifyHeaderRole:
-    """Tests for classify_header_role."""
-
     def test_bhc_header_brief(self) -> None:
         assert classify_header_role("Brief Hospital Course") == "BHC header"
 
@@ -32,8 +30,6 @@ class TestClassifyHeaderRole:
 
 
 class TestDiscoverHeadersInTexts:
-    """Tests for discover_headers_in_texts."""
-
     def test_empty_input(self) -> None:
         assert discover_headers_in_texts([]) == []
 

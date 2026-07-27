@@ -11,8 +11,6 @@ from mimic_bhc._util import detect_mimic_format, is_mimic3
 # detect_mimic_format
 # ---------------------------------------------------------------------------
 class TestDetectMimicFormat:
-    """Tests for detect_mimic_format."""
-
     def test_mimic3_plain_csv(self, tmp_path):
         csv = tmp_path / "notes.csv"
         csv.write_text(
@@ -54,8 +52,6 @@ class TestDetectMimicFormat:
 # is_mimic3
 # ---------------------------------------------------------------------------
 class TestIsMimic3:
-    """Tests for is_mimic3."""
-
     def test_explicit_mimic3(self):
         assert is_mimic3("/fake/path.csv", "mimic3") is True
 
@@ -77,8 +73,6 @@ class TestIsMimic3:
 # load_dataframe
 # ---------------------------------------------------------------------------
 class TestLoadDataframe:
-    """Tests for load_dataframe."""
-
     def test_csv_columns_normalized_to_lowercase(self, tmp_path):
         import duckdb
 

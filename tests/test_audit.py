@@ -5,7 +5,6 @@ from mimic_bhc.audit import (
     build_audit_entries,
 )
 from mimic_bhc.model import BHCResult
-from mimic_bhc.stats import MIN_BHC_LENGTH
 
 
 def _make_result(
@@ -59,7 +58,6 @@ class TestBuildAuditEntries:
     def test_short_extraction_flagged(self):
         """Extractions below MIN_BHC_LENGTH should get a 'short' flag."""
         results = [_make_result(bhc_text="Short")]
-        assert len("Short") < MIN_BHC_LENGTH
         entries = build_audit_entries(results)
         assert "short" in entries[0]["review_flags"]
 

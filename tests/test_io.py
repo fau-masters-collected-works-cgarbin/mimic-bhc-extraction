@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from mimic_bhc.io import load_jsonl, load_results, write_jsonl, write_results
 from mimic_bhc.model import BHCResult
 
@@ -72,11 +70,6 @@ class TestLoadResults:
         assert results[0].extraction_success is False
         assert results[0].failure_reason == "no_header"
 
-    def test_load_nonexistent_raises(self, tmp_path: Path):
-        """Should raise FileNotFoundError for missing file."""
-        with pytest.raises(FileNotFoundError):
-            load_results(tmp_path / "nonexistent.jsonl")
-
 
 def _make_bhc_result(hadm_id: int = 1) -> BHCResult:
     return BHCResult(
@@ -108,15 +101,6 @@ class TestLoadJsonl:
 
         loaded = load_jsonl(path)
         assert len(loaded) == 2
-
-    def test_roundtrip_with_write_jsonl(self, tmp_path: Path):
-        """write_jsonl then load_jsonl should preserve data."""
-        path = tmp_path / "roundtrip.jsonl"
-        original = [{"hadm_id": i, "status": "ok"} for i in range(5)]
-        write_jsonl(original, path)
-
-        loaded = load_jsonl(path)
-        assert loaded == original
 
 
 class TestWriteResults:

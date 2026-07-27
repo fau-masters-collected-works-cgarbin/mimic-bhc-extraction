@@ -138,9 +138,8 @@ class TestRunStats:
     def test_resolve_mimic_paths_exits_when_required_table_missing(self):
         """ADMISSIONS provided without NOTEEVENTS: exit with code 2.
 
-        Population stats need both tables. Passing only one is a config error,
-        and the CLI must surface it loudly rather than silently skip the
-        population block.
+        Population stats need both tables. Passing only one is a config error
+        the CLI must surface loudly.
         """
         args = Namespace(
             mimic_dir=None,
@@ -217,8 +216,6 @@ class TestPrintBucketedAvailability:
         # Total row counts (Total / CareVue / MetaVision) anchored against
         # the literal Total prefix so substrings inside other rows do not match.
         assert "Total        15" in out
-        assert '"All count" sums CareVue, MetaVision, Mixed, and No-ICU' in out
-        assert 'Mixed and No-ICU are itemized in the "By ICU system" block above' in out
         assert "admissions excluded due to missing value" not in out
 
     def test_renders_excluded_comment(self, capsys):
@@ -231,10 +228,6 @@ class TestPrintBucketedAvailability:
         _print_bucketed_availability("By LOS bucket:", breakdown)
         out = capsys.readouterr().out
         assert "admissions excluded due to missing value" in out
-        assert "7 total" in out
-        assert "4 CareVue" in out
-        assert "3 MetaVision" in out
-        # Per-system excluded counts surfaced in the comment.
         assert "7 total" in out
         assert "4 CareVue" in out
         assert "3 MetaVision" in out

@@ -17,14 +17,14 @@ def mimic3_noteevents_gz(tmp_path):
         '1,10,100,2150-01-01,,,"Discharge summary","Report",,,'
         '"Brief Hospital Course:\nPatient had pneumonia.\n\n'
         'Medications on Discharge:\nAmoxicillin"\n'
-        # ISERROR row -- should be flagged
+        # ISERROR row, should be flagged
         '2,10,200,2150-01-02,,,"Discharge summary","Report",,1,'
         '"Brief Hospital Course:\nThis is an error note.\n\n'
         'Discharge Condition:\nN/A"\n'
-        # Non-discharge category -- should be filtered
+        # Non-discharge category, should be filtered
         '3,10,300,2150-01-03,,,"Radiology","Report",,,'
         '"Normal chest X-ray."\n'
-        # Addendum (same hadm_id=100, shorter) -- should be deduplicated
+        # Addendum (same hadm_id=100, shorter), should be deduplicated
         '4,10,100,2150-01-01,,,"Discharge summary","Addendum",,,'
         '"Brief Hospital Course:\nShort.\n\nDischarge Condition:\nOK"\n'
     )
@@ -135,7 +135,7 @@ class TestFailedExtractions:
         csv_content = (
             "ROW_ID,SUBJECT_ID,HADM_ID,CHARTDATE,CHARTTIME,STORETIME,"
             "CATEGORY,DESCRIPTION,CGID,ISERROR,TEXT\n"
-            # Note with no BHC header — extraction will fail
+            # Note with no BHC header, extraction will fail
             '1,10,100,2150-01-01,,,"Discharge summary","Report",,,'
             '"No hospital course section here. Just random text."\n'
         )

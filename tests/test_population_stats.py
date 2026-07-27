@@ -98,8 +98,7 @@ def admissions_gz(tmp_path):
         "2,20,200,2150-02-01 00:00:00,2150-02-02 00:00:00,1\n"
         # hadm 300: LOS = 10 days, alive
         "3,30,300,2150-03-01 00:00:00,2150-03-11 00:00:00,0\n"
-        # hadm 400: LOS = 1 day, alive. Used by the self-check test as an
-        # admission present in ADMISSIONS but absent from NOTEEVENTS.
+        # hadm 400: LOS = 1 day, alive. Present in ADMISSIONS, absent from NOTEEVENTS.
         "4,40,400,2150-04-01 00:00:00,2150-04-02 00:00:00,0\n"
     )
     path = tmp_path / "ADMISSIONS.csv.gz"
@@ -339,7 +338,7 @@ class TestComputePopulationStats:
 
 @pytest.fixture
 def bucket_paths(tmp_path):
-    """ADMISSIONS, NOTEEVENTS, and ICUSTAYS for the boundary-test universe.
+    """Build ADMISSIONS, NOTEEVENTS, and ICUSTAYS for the boundary-test universe.
 
     All seeded admissions are MetaVision and clinical_narrative, so the
     Total and MetaVision columns match and the CareVue column stays empty.
@@ -479,9 +478,9 @@ class TestLengthStratifiedBreakdowns:
     ):
         """Each system column reconciles with its by-ICU-system total.
 
-        Strongest self-check from the handoff. Also pins that hadm 100
-        (carevue, LOS 5) lands in the CareVue column of the 5-to-6 bucket,
-        which would break if bucketing leaked across systems.
+        Also pins that hadm 100 (carevue, LOS 5) appears in the CareVue
+        column of the 5-to-6 bucket, which would break if bucketing leaked
+        across systems.
         """
         results = [
             _result(hadm_id=100, subject_id=10),
@@ -577,7 +576,7 @@ class TestLengthStratifiedBreakdowns:
 
 @pytest.fixture
 def noteevents_volume_gz(tmp_path):
-    """NOTEEVENTS fixture with deterministic note-text lengths.
+    """Build a NOTEEVENTS fixture with deterministic note-text lengths.
 
     Per admission (after excluding the discharge summary):
 
@@ -642,7 +641,7 @@ class TestNoteVolumeStats:
     def test_distributions_split_by_system_and_class(
         self, admissions_with_volume, noteevents_volume_gz, icustays_volume_gz
     ):
-        """clin_narr distribution covers hadm 100 only; imaging_only covers 200 and 300."""
+        """clin_narr covers hadm 100 only. imaging_only covers 200 and 300."""
         results = [
             _result(hadm_id=100, subject_id=10),
             _result(hadm_id=200, subject_id=20),
