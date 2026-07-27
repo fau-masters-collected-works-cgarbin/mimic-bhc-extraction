@@ -191,10 +191,12 @@ Service is the strongest predictor of format (Cramer's V = 0.71 in both datasets
 
 | Modifier | MIMIC-III | MIMIC-IV |
 |----------|----------:|----------:|
-| Acute/chronic partition | — | 15% |
-| Transitional Issues section | — | 31% |
+| Acute/chronic partition | 2.0% | 15% |
+| Transitional Issues section | 4.5% | 31% |
 
-Both modifiers are predominantly a MIMIC-IV phenomenon, consistent with more recent clinical practice and structured EHR templates.
+MIMIC-III rates are over the same 51,131 successful extractions as the category table, counted from the `bhc_structure.modifiers` field in `bhc.jsonl`: 1,001 cases with an acute/chronic partition and 2,282 with a transitional issues section.
+
+Both modifiers are roughly seven times more common in MIMIC-IV, consistent with more recent clinical practice and structured EHR templates.
 
 ### BHC length by format
 
