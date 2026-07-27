@@ -3,19 +3,18 @@
 These statistics extend ``stats.compute_bhc_stats`` with admission-cohort
 metadata that lives outside the BHCResult records: length-of-stay, hospital
 mortality, note-category availability (presence of nursing or physician notes),
-and patient-level concentration.
+note volume, format by note-category, and patient-level concentration.
 
 The universe matches the existing length and structure distribution stats:
 admissions where BHC extraction succeeded (``BHCResult.extraction_success``).
 No additional quality filtering is applied.
 
-Stats are split into two groups:
-
 - ``compute_patient_concentration``: derived purely from BHCResult.subject_id,
   always available.
-- ``load_population_attrs`` + ``compute_population_stats``: require MIMIC source
-  tables (ADMISSIONS, NOTEEVENTS, ICUSTAYS) joined to the extraction results.
-  ICUSTAYS is optional and only used for the by-ICU-system breakdown.
+- ``compute_population_stats`` and its loaders: require MIMIC source tables
+  (ADMISSIONS, NOTEEVENTS, ICUSTAYS) joined to the extraction results.
+  ICUSTAYS is optional. Without it the per-ICU-system columns and the LOS and
+  BHC-length breakdowns are omitted.
 """
 
 from __future__ import annotations
@@ -130,7 +129,7 @@ class BucketRow(TypedDict):
 class BucketedAvailability(TypedDict):
     """Note-category availability stratified by a value bucket, per system.
 
-    Invariant: for each column, ``sum(row[col]) + excluded[col]`` equals
+    For each column, ``sum(row[col]) + excluded[col]`` equals
     the matching ``by_dbsource`` row total. The Total column reconciles
     against the population aggregate (which includes Mixed and No-ICU).
     """
@@ -217,7 +216,7 @@ class PopulationStats(TypedDict):
 
 
 def compute_patient_concentration(results: Sequence[BHCResult]) -> PatientConcentration:
-    """Distribution of admissions per distinct patient over successful extractions.
+    """Compute the distribution of admissions per distinct patient.
 
     Universe matches ``compute_population_stats``: successful extractions with a
     non-null hadm_id. Records missing subject_id are kept in ``total_admissions``
@@ -261,7 +260,7 @@ def load_admissions(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     Returns a DataFrame indexed by hadm_id with ``hospital_expire_flag`` and
     ``los_days`` columns. Rows whose hadm_id is not in ``hadm_ids`` are
     dropped. ``los_days`` mirrors the cohort doc's convention:
-    ``DATE_DIFF('day', ADMITTIME, DISCHTIME)`` — the integer number of day
+    ``DATE_DIFF('day', ADMITTIME, DISCHTIME)``, the integer number of day
     boundaries crossed between admit and discharge, not fractional days.
     Using fractional days would put admissions like ``Jan 1 23:00 -> Jan 4
     01:00`` (50 hours, two boundaries crossed) on the wrong side of the
@@ -271,9 +270,9 @@ def load_admissions(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     df = df[df["hadm_id"].isin(hadm_ids)].copy()
     if len(df) < len(hadm_ids):
         # By construction every hadm_id in NOTEEVENTS has a row in ADMISSIONS,
-        # so a shortfall here signals stale or mismatched MIMIC tables. Warn
-        # rather than raise: LOS and mortality are still meaningful over the
-        # rows that did match, just with a smaller denominator.
+        # so a shortfall here signals stale or mismatched MIMIC tables. LOS and
+        # mortality stay meaningful over the rows that did match, with a
+        # smaller denominator.
         missing = len(hadm_ids) - len(df)
         warnings.warn(
             f"{missing} hadm_id(s) from the extraction universe are missing "
@@ -320,7 +319,7 @@ def load_note_category_availability(path: str, hadm_ids: set[int]) -> pd.DataFra
 
 
 def load_per_admission_note_volume(path: str, hadm_ids: set[int]) -> pd.DataFrame:
-    """Per-admission note count and total characters, excluding discharge summaries.
+    """Load per-admission note count and total characters, excluding discharge summaries.
 
     The discharge summary is excluded because the BHC is part of it: it
     is the generation target, not source content. Admissions whose only
@@ -351,11 +350,11 @@ def load_per_admission_note_volume(path: str, hadm_ids: set[int]) -> pd.DataFram
 def load_icu_dbsource(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     """Classify each hadm_id by ICU dbsource (carevue / metavision / mixed).
 
-    Admissions without any ICU stay are not present in the returned frame;
-    callers that want to surface them should reindex by their full hadm_id
+    Admissions without any ICU stay are not present in the returned frame.
+    Callers that want to surface them should reindex by their full hadm_id
     universe and fill the missing rows with ``DBSOURCE_NO_ICU``.
     """
-    # COALESCE guards against all-NULL DBSOURCE groups, where BOOL_AND would
+    # COALESCE handles all-NULL DBSOURCE groups, where BOOL_AND would
     # otherwise return NULL and propagate as pandas NA into the bucketing.
     query = """
         SELECT
@@ -401,7 +400,7 @@ def _build_admission_frame(
     note_volume: pd.DataFrame,
     icu_dbsource: pd.DataFrame | None,
 ) -> pd.DataFrame:
-    """One DataFrame keyed by hadm_id with all attributes the stats need."""
+    """Build one DataFrame keyed by hadm_id with the attributes the stats need."""
     rows = [
         {
             "hadm_id": r.hadm_id,
@@ -423,8 +422,8 @@ def _build_admission_frame(
         )
     df = base.join(admissions, how="left").join(note_categories, how="left")
     df = df.join(note_volume, how="left")
-    # Admissions whose only note is the discharge summary land in the
-    # universe with no row in note_volume; treat them as zero, not NaN.
+    # Admissions whose only note is the discharge summary have no row in
+    # note_volume. Treat them as zero, not NaN.
     df["note_count"] = df["note_count"].fillna(0).astype(int)
     df["note_chars"] = df["note_chars"].fillna(0).astype(int)
     if icu_dbsource is not None:
@@ -542,7 +541,7 @@ def _los_stats(df: pd.DataFrame) -> LosStats:
 
 
 def _format_cross_tab(df: pd.DataFrame) -> FormatByNoteCategory:
-    """2x2 cross-tab of BHC format (narrative, domain_organized) by note-category.
+    """Cross-tabulate BHC format (narrative, domain_organized) against note-category.
 
     Templates (standardized_template) are excluded per the cohort doc.
     """
@@ -626,7 +625,7 @@ def compute_population_stats(
     noteevents_path: str,
     icustays_path: str | None = None,
 ) -> PopulationStats:
-    """Compute the four MIMIC-derived population statistics.
+    """Compute the five MIMIC-derived population statistics.
 
     The admission universe is the set of hadm_ids whose extraction succeeded.
     All MIMIC tables are filtered to that set before computation. The
@@ -690,7 +689,7 @@ def compute_population_stats(
 def discover_mimic3_paths(mimic_dir: str | Path) -> dict[str, str | None]:
     """Locate ADMISSIONS, NOTEEVENTS, and ICUSTAYS inside a MIMIC-III root dir.
 
-    Looks for both gzipped and plain CSV variants. Missing files map to None.
+    Looks for .csv.gz, .csv, and .parquet, in that order. Missing files map to None.
     Used by the CLI to translate ``--mimic-dir`` into the individual paths
     that ``compute_population_stats`` requires.
     """

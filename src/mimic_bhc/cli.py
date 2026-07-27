@@ -180,8 +180,8 @@ def _resolve_mimic_paths(args: argparse.Namespace) -> _ResolvedMimicPaths | None
     """Resolve --mimic-dir or per-table flags to a path dict.
 
     Returns ``None`` when no MIMIC source is supplied (population stats are
-    skipped in that case). Raises ``SystemExit`` when --mimic-dir is set but
-    the required tables (ADMISSIONS, NOTEEVENTS) cannot be located.
+    skipped in that case). Raises ``SystemExit`` when only one of the two
+    required tables (ADMISSIONS, NOTEEVENTS) can be located.
     """
     from mimic_bhc.population_stats import discover_mimic3_paths
 
@@ -508,10 +508,11 @@ def _add_stats_args(parser: argparse.ArgumentParser) -> None:
         help=(
             "Path to MIMIC-III root directory (e.g. physionet.org/files/mimiciii/1.4). "
             "When set, the stats command also reports population baselines "
-            "(note-category availability, length of stay, format x note-category "
-            "cross-tab, mortality) by joining ADMISSIONS, NOTEEVENTS, and ICUSTAYS "
-            "with the extraction results. ICUSTAYS is optional and only used for "
-            "the by-ICU-system breakdown."
+            "(note-category availability, length of stay, note volume, format x "
+            "note-category cross-tab, mortality) by joining ADMISSIONS, NOTEEVENTS, "
+            "and ICUSTAYS with the extraction results. ICUSTAYS is optional. Without "
+            "it the per-ICU-system columns and the LOS and BHC-length breakdowns are "
+            "omitted."
         ),
     )
     parser.add_argument(

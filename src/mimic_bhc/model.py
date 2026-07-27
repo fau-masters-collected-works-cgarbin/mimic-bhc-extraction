@@ -1,4 +1,4 @@
-"""BHCResult: the canonical data structure for BHC extraction results.
+"""BHCResult: the data structure for BHC extraction results.
 
 See docs/extraction-design.md for the layered population model.
 """
@@ -60,9 +60,8 @@ class BHCResult:
     def to_dict(self) -> dict:
         """Serialize to a dict for JSON output.
 
-        This is the single serialization point. Field names here define
-        the JSON schema; no other code should construct output dicts from
-        BHCResult fields manually.
+        This is the single serialization point. The field names here are
+        the JSON schema.
         """
         structure_dict = None
         if self.bhc_structure is not None:

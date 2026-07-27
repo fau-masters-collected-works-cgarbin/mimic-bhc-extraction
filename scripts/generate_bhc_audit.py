@@ -32,7 +32,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # Load persisted extraction results.
     print(f"Loading extraction results from {args.input}...")
     results = load_results(args.input)
     if not results:
@@ -42,7 +41,6 @@ def main():
     successes = sum(1 for r in results if r.extraction_success)
     print(f"  {len(results):,} admissions, {successes:,} successful")
 
-    # Build audit entries.
     print("Building audit entries...")
     entries = build_audit_entries(results)
 
@@ -57,7 +55,6 @@ def main():
     for flag, count in sorted(flag_counts.items(), key=lambda x: -x[1]):
         print(f"    {flag}: {count:,}")
 
-    # Write output.
     write_jsonl(entries, args.output)
     print(f"\nWrote {len(entries):,} entries to {args.output}")
 

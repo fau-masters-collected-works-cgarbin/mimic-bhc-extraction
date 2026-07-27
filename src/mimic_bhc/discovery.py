@@ -2,10 +2,8 @@
 
 Diagnostic utilities for exploring what section headers appear in discharge
 notes and how they relate to the BHC extraction patterns.  These are not
-part of the extraction logic itself -- they exist to support pattern
+part of the extraction logic itself. They exist to support pattern
 development and validation.
-
-Two entry points:
 
 - ``discover_headers_from_file``: loads a MIMIC CSV/parquet file, samples
   notes, and returns a frequency table.  This is the file-level function
@@ -32,7 +30,7 @@ if TYPE_CHECKING:
 def classify_header_role(header: str) -> str:
     """Classify a discovered header as 'BHC header', 'End boundary', or 'Other'.
 
-    Checks the header text against the extraction module's compiled patterns
+    Checks the header text against ``mimic_bhc.patterns``' compiled patterns
     for BHC start headers and end boundaries.  Headers that match neither
     are labeled 'Other'.
     """
@@ -96,7 +94,7 @@ def discover_headers_from_file(
 
     This is the file-level entry point for header discovery.  It handles
     format detection, column mapping, MIMIC-III discharge-summary filtering,
-    and sampling -- the user only provides the file path.
+    and sampling. The user only provides the file path.
 
     Parameters
     ----------

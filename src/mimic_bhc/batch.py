@@ -197,7 +197,7 @@ def extract_from_file(
 
     # MIMIC-III: filter to discharge summaries. This loads all note categories
     # into memory before filtering, but the full DataFrame is short-lived and
-    # replaced by the filtered copy (~52k rows vs ~2M) immediately after.
+    # replaced by the filtered copy (~60k rows vs ~2M) immediately after.
     if is_mimic3:
         notes = notes[notes["category"] == "Discharge summary"].copy()
 

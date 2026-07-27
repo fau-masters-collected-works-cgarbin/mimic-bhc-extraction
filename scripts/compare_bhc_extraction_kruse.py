@@ -78,9 +78,8 @@ def run_comparison(input_path: str) -> pd.DataFrame:
 
     print(f"  Loaded {len(results):,} extraction results from JSONL")
 
-    # Run Kruse's extractor on the same note text used by our extractor.
-    # The extraction pipeline already deduplicated to one note per admission,
-    # so both extractors see the same input without additional dedup.
+    # Run Kruse's extractor on the same note text used by our extractor, so
+    # both see identical input.
     print("  Running Kruse extraction...")
     t0 = time.time()
     rows = []

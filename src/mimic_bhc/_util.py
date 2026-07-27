@@ -39,7 +39,7 @@ def detect_mimic_format(csv_path: str) -> str:
     """Auto-detect MIMIC version by checking for CATEGORY column in first row.
 
     Only works with CSV files (plain or gzipped). Parquet files do not have a
-    text header row, so auto-detection is not supported; pass --format explicitly.
+    text header row, so auto-detection is not supported. Pass --format explicitly.
     """
     if csv_path.endswith(".parquet"):
         msg = (

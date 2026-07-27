@@ -24,8 +24,8 @@ def extract_bhc(note_text: str) -> BHCResult:
     boundary or end of note.  Returns a BHCResult with extraction metadata.
 
     This is a pure text-in/result-out function. It does not know about
-    admission IDs, note metadata, or structure classification. Callers
-    enrich the result with that context via dataclasses.replace().
+    admission IDs, note metadata, or structure classification. Callers add
+    that context afterward.
     """
     # Try each header pattern in priority order (most specific first).
     header_match = None

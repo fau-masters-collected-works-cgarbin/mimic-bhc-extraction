@@ -18,11 +18,11 @@ import re
 # Ordered from most specific to least specific so the match reports the best
 # variant.  Optional colon, optional trailing whitespace.
 #
-# Uses [ \t] instead of \s to avoid matching across line breaks -- a line
+# Uses [ \t] instead of \s to avoid matching across line breaks. A line
 # ending with "hospital" and the next starting with "course" should not be
 # treated as a header.  The end-of-line anchor ($) is intentionally omitted
 # so that headers with inline text ("HOSPITAL COURSE:  The patient was...")
-# still match; the ^ anchor prevents mid-sentence false positives.
+# still match. The ^ anchor prevents mid-sentence false positives.
 # Common prefix: optional "concise/brief summary of" or "history of"
 _SUMMARY_PREFIX = r"(?:(?:(?:concise|brief)[ \t]+)?summary[ \t]+of[ \t]+)?"
 _HISTORY_PREFIX = r"(?:history[ \t]+of[ \t]+)?"
@@ -70,7 +70,7 @@ _BHC_HEADER_PRIORITY = [
 #
 # "Facility" and "Attending" are legitimate discharge-summary sections but
 # could in theory appear as standalone lines within a BHC.  The start-of-line
-# anchor mitigates most false positives; empirical verification found no
+# anchor mitigates most false positives. Empirical verification found no
 # premature truncation from these patterns.
 #
 # Uses [ \t] instead of \s for intra-pattern whitespace (same rationale as

@@ -7,8 +7,8 @@ structural features:
 - Category B (Domain-organized): 2+ explicitly labeled sections
 - Category C (Standardized template): NICU template with fixed domain set
 
-Also detects modifiers: numbering convention, acute/chronic partition,
-and transitional issues section.
+Also records the numbering convention, and detects two modifiers:
+acute/chronic partition and a transitional issues section.
 
 The taxonomy and detection rules are defined in the codebook (see
 BHC organizational structure analysis documentation).
@@ -164,8 +164,7 @@ _DISCHARGE_HEADER_RE = re.compile(
 def _is_discharge_header(bhc_text: str, match_start: int) -> bool:
     """Check if a standalone header match is actually a discharge-summary section header."""
     # Find the full line containing this match. We locate the true line start
-    # rather than trusting match_start to be at column 0, so this stays correct
-    # even if the caller's regex loses its ^ anchor.
+    # rather than trusting match_start to be at column 0.
     line_start = bhc_text.rfind("\n", 0, match_start) + 1
     line_end = bhc_text.find("\n", match_start)
     if line_end == -1:
