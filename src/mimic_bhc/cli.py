@@ -170,10 +170,15 @@ def _print_bhc_text_properties(stats: BHCStats) -> None:
         print(f"  Short extractions (<100 chars): {stats['short_extractions']:,}")
 
     successes = stats["successes"]
+    median_by_format = stats["median_length_by_format"]
     if stats["format_distribution"]:
         print("\nStructure distribution:")
         for fmt, count in sorted(stats["format_distribution"].items(), key=lambda x: -x[1]):
-            print(f"  {fmt:<40} {count:>8,} ({100 * count / successes:>5.1f}%)")
+            median = median_by_format[fmt]
+            print(
+                f"  {fmt:<40} {count:>8,} ({100 * count / successes:>5.1f}%)"
+                f"  median {median:>7,.0f} chars"
+            )
 
 
 def _resolve_mimic_paths(args: argparse.Namespace) -> _ResolvedMimicPaths | None:

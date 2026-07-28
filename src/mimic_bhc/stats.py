@@ -30,6 +30,7 @@ class BHCStats(TypedDict):
     bhc_length_stats: dict[str, float | int]
     short_extractions: int
     format_distribution: dict[str, int]
+    median_length_by_format: dict[str, float]
 
 
 def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
@@ -48,6 +49,7 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
             "bhc_length_stats": {},
             "short_extractions": 0,
             "format_distribution": {},
+            "median_length_by_format": {},
         }
 
     successful = [r for r in results if r.extraction_success]
@@ -66,6 +68,15 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
 
     # Structure distribution
     format_dist = dict(Counter(r.bhc_structure.category for r in successful if r.bhc_structure))
+
+    # Median length per structure category
+    lengths_by_format: dict[str, list[int]] = {}
+    for r in successful:
+        if r.bhc_structure:
+            lengths_by_format.setdefault(r.bhc_structure.category, []).append(r.bhc_char_count)
+    median_length_by_format: dict[str, float] = {}
+    for category, lengths in lengths_by_format.items():
+        median_length_by_format[category] = _median(sorted(lengths))
 
     # BHC length stats
     length_stats: dict[str, float | int] = {}
@@ -95,6 +106,7 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
         "bhc_length_stats": length_stats,
         "short_extractions": short_extractions,
         "format_distribution": format_dist,
+        "median_length_by_format": median_length_by_format,
     }
 
 

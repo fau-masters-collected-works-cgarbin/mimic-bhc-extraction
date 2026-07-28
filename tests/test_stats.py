@@ -38,6 +38,7 @@ class TestComputeBhcStats:
         assert stats["bhc_length_stats"] == {}
         assert stats["short_extractions"] == 0
         assert stats["format_distribution"] == {}
+        assert stats["median_length_by_format"] == {}
 
     def test_stats_on_known_input(self):
         results = [
@@ -84,3 +85,17 @@ class TestComputeBhcStats:
 
         stats = compute_bhc_stats(results)
         assert stats["short_extractions"] == 1
+
+    def test_median_length_by_format(self):
+        results = [
+            _make_bhc_result(bhc_text="x" * 100, category="narrative"),
+            _make_bhc_result(bhc_text="x" * 300, category="narrative"),
+            _make_bhc_result(bhc_text="x" * 500, category="narrative"),
+            _make_bhc_result(bhc_text="x" * 2000, category="domain_organized"),
+            _make_bhc_result(bhc_text="x" * 4000, category="domain_organized"),
+        ]
+
+        assert compute_bhc_stats(results)["median_length_by_format"] == {
+            "narrative": 300,
+            "domain_organized": 3000,
+        }
