@@ -16,7 +16,7 @@ These differences affect extraction rates, header distributions, and structure c
 
 MIMIC-III NOTEEVENTS includes an ISERROR column that flags notes entered in error (filed to the wrong patient, retracted, etc.). The extraction tool does not exclude these rows. It flags them with an `iserror` quality flag so consumers can decide whether to keep them. For the analysis below, ISERROR rows were excluded to produce clean statistics. Prior work on MIMIC-III does not consistently document whether ISERROR rows were excluded, which introduces a small source of incomparability in published row counts.
 
-MIMIC-III also stores addendums as separate rows with the same hospital admission ID (HADM_ID) as the original discharge summary. An addendum is a supplemental note appended after the original, typically containing corrections or late results. Of the 59,652 discharge summary rows, 6,926 are duplicates by HADM_ID. We deduplicate by keeping the longest note per admission, following Adams et al. (2021), on the rationale that the longest version is the most complete.
+MIMIC-III also stores addendums as separate rows with the same hospital admission ID (HADM_ID) as the original discharge summary. An addendum is a supplemental note appended after the original, typically containing corrections or late results. Of the 59,652 discharge summary rows, 6,926 are duplicates by HADM_ID. We deduplicate by keeping the longest note per admission, on the rationale that the longest version is the most complete. See [Addendum deduplication](extraction-design.md#addendum-deduplication) for how this compares to published practice.
 
 | Metric | Count |
 |--------|------:|
@@ -33,13 +33,13 @@ MIMIC-III also stores addendums as separate rows with the same hospital admissio
 | Success rate | 97.0% |
 | Failure reason (all failures) | `no_header` |
 
-All failures are `no_header`. No `empty_section` failures were observed. The 1,595 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters.
+All failures are `no_header`. No `empty_section` failures were observed. Most of the 1,595 failed notes are genuinely unstructured: they lack any recognizable BHC header variant and use a narrative format without section delimiters. The exception is 31 notes that carry a real BHC header our start-of-line anchor cannot reach, described under [Why Kruse captures 31 cases we miss](#why-kruse-captures-31-cases-we-miss).
 
 ### Comparison with published numbers
 
 Our 97.0% extraction rate benefits from two design choices: (1) allowing inline text after the header colon (many notes write "HOSPITAL COURSE: The patient was admitted..." on one line rather than separating the header), and (2) matching a broader set of header variants including "Summary of Hospital Course", "Concise Summary of Hospital Course", "NICU Course", "History of Hospital Course", and "Hospitalization Course".
 
-Adams et al. (2021) report ~109K source-target pairs from MIMIC-III. This number is larger than the ~59K total discharge summary rows in NOTEEVENTS, so it likely refers to source-target pairs in their summarization dataset (where the "source" is the collection of clinical notes for an admission and the "target" is the BHC), not to extracted BHC sections. We cannot directly compare our extraction count to their 109K.
+Adams et al. (2021) introduce the task of hospital-course summarization, but their CLINSUM dataset is Columbia data, so the paper offers no MIMIC-III extraction rate to compare against. See [Comparison with Adams et al.](#comparison-with-adams-et-al-clin-sum) for their extraction method.
 
 ### Header distribution
 
@@ -96,11 +96,11 @@ These aggregate statistics mix narrative and domain-organized BHCs, which differ
 
 ### Verification
 
-Manual inspection of 10 randomly selected successful extractions confirmed correct boundary detection in all cases: BHC text started immediately after the header and ended at the expected section boundary. No truncation (boundary firing too early) or over-extraction (capturing the next section) was observed. The "Facility" and "Attending" medium-confidence end boundaries did not cause premature truncation in any inspected case.
+Manual inspection of 10 randomly selected successful extractions confirmed correct boundary detection in all cases: BHC text started immediately after the header and ended at the expected section boundary. No truncation (boundary firing too early) or over-extraction (capturing the next section) was observed. The "Facility" and "Attending" medium-confidence end boundaries did not cause premature truncation in any inspected case. Ten notes is a spot check. It would catch a systematic boundary failure. The low-prevalence problems in [Known Limitations](#known-limitations) are measured there by full-corpus scans.
 
 ## MIMIC-IV-Note Results
 
-Results from running the same extractor on MIMIC-IV-Note v2.2 discharge summaries, for comparison with MIMIC-III results and with Aali et al. (2024).
+Results from running the same extractor on MIMIC-IV-Note v2.2 discharge summaries, for comparison with MIMIC-III results and with Aali et al. (2025).
 
 ### Dataset summary
 
@@ -173,11 +173,10 @@ Distribution of the three-category taxonomy (see [Structure classification](extr
 
 | Category | MIMIC-III (51,131) | MIMIC-IV (293,329) |
 |----------|-------------------:|-------------------:|
-| Narrative | 43% | 36% |
-| Domain-organized | 52% | 62% |
+| Narrative | 43.6% | 37.7% |
+| Domain-organized | 52.0% | 62.3% |
 | Standardized template | 4.4% | 0% |
 
-Percentages are rounded and may not sum to exactly 100%.
 
 Domain-organized is the majority format in both datasets. Standardized templates are exclusively NICU discharge summaries and appear only in MIMIC-III (no neonatal admissions in MIMIC-IV).
 
@@ -191,8 +190,8 @@ Service is the strongest predictor of format (Cramer's V = 0.71 in both datasets
 
 | Modifier | MIMIC-III | MIMIC-IV |
 |----------|----------:|----------:|
-| Acute/chronic partition | 2.0% | 15% |
-| Transitional Issues section | 4.5% | 31% |
+| Acute/chronic partition | 2.0% | 14.6% |
+| Transitional Issues section | 4.5% | 30.2% |
 
 MIMIC-III rates are over the same 51,131 successful extractions as the category table, counted from the `bhc_structure.modifiers` field in `bhc.jsonl`: 1,001 cases with an acute/chronic partition and 2,282 with a transitional issues section.
 
@@ -204,24 +203,25 @@ Narrative and domain-organized BHCs differ in length by roughly 2x in both datas
 
 | Format | MIMIC-III median (chars) | MIMIC-IV median (chars) |
 |--------|-------------------------:|------------------------:|
-| Narrative | 1,669 | 1,305 |
-| Domain-organized | 3,241 | 2,620 |
+| Narrative | 1,625 | 1,234 |
+| Domain-organized | 3,239 | 2,617 |
+| Standardized template | 4,006 | n/a |
 
 This length difference has implications for evaluation metrics that are sensitive to length mismatch. See [Why format matters for downstream tasks](extraction-design.md#why-format-matters-for-downstream-tasks) in the design document.
 
-## Comparison with StanfordMIMI/clin-bhc-summ
+## Comparison with Aali et al. (clin-bhc-summ)
 
-A detailed review of the Stanford code and the associated paper (Aali et al., JAMIA 2024).
+Aali et al. (2025) built the MIMIC-IV-Ext-BHC dataset with a pipeline whose extraction step is not published. We review the released code (`StanfordMIMI/clin-bhc-summ`, referred to below as Stanford) against the paper's reported statistics.
 
-**Extraction methodology is underspecified.** Neither the paper nor the repo publish the actual extraction regex. The paper describes preprocessing as "whitespace removal, uniform spacing, section identification, header standardization, extraneous symbol removal, and tokenization" using regex and NLTK, but the specific patterns are not disclosed. The repo (`utils/mimic_iv_bhc_preprocessing.py`) contains only post-extraction cleanup of an already-extracted BHC column. We cannot directly compare extraction strategies, only validate against their published dataset statistics.
+**Extraction method.** Neither the paper nor the repo publishes the actual extraction regex. The paper describes preprocessing as "whitespace removal, uniform spacing, section identification, header standardization, extraneous symbol removal, and tokenization" using regex and NLTK, but the specific patterns are not disclosed. The repo (`utils/mimic_iv_bhc_preprocessing.py`) contains only post-extraction cleanup of an already-extracted BHC column. We cannot directly compare extraction strategies, only validate against their published dataset statistics.
 
-**Drop rate is significant but unexplained.** They started with 331,794 MIMIC-IV-Note discharge summaries (our extraction sees 331,793, a difference of 1 that is unexplained) and produced 270,033 note-BHC pairs, dropping ~19% of notes. The paper does not break down why notes were dropped (missing BHC header? malformed structure? minimum length filter?). Our structured extraction metadata can address this gap.
+**Drop rate.** They started with 331,794 MIMIC-IV-Note discharge summaries (our extraction sees 331,793, a difference of 1 that is unexplained) and produced 270,033 note-BHC pairs, dropping ~19% of notes. The paper does not break the drop down by cause.
 
 **Header handling.** Their post-extraction cleanup strips four hardcoded header variants via `.replace()` calls: "Brief Hospital Course:\n", "BRIEF HOSPITAL COURSE:\n", "BRIEF HOSPITAL COURSE", "Brief Hospital Course". Our extractor uses four case-insensitive regex patterns that match these plus additional variants: "hospital course", "hospitalization course", "nicu course", "hosp course", each with optional prefixes like "summary of", "concise summary of", "history of". We preserve the matched header as metadata rather than stripping it.
 
-**End boundaries.** Their code lists 19 section headers as categories, which would serve as end boundaries during extraction. This list includes headers for sections that typically appear before the BHC (Chief Complaint, History of Present Illness, Physical Exam, etc.), useful for a general section parser but unnecessary for BHC-specific extraction. Our allowlist has 15 patterns focused specifically on sections that follow the BHC.
+**End boundaries.** Their code lists 19 section headers as categories, which would serve as end boundaries during extraction. The list includes sections that typically appear before the BHC (Chief Complaint, History of Present Illness, Physical Exam). Our allowlist has 15 patterns, all of them sections that follow the BHC.
 
-**Note filtering.** They apply a structural format check (`text[88:91] == 'Sex'`) to keep only notes following the standard EHR template. MIMIC-IV-Note discharge summaries with the standard template start with a fixed-format preamble (~88 characters), followed by "Sex:" as the first structured field. Notes passing this check are likely to have all subsequent section headers in the standard format. This is a brittle heuristic (it assumes a fixed preamble length) but would pre-filter to notes following the standard template. We do not apply this filter, which means we attempt extraction on all discharge summaries including poorly structured ones. This may explain differences in extraction rates.
+**Note filtering.** They apply a structural format check (`text[88:91] == 'Sex'`) to keep only notes following the standard EHR template. MIMIC-IV-Note discharge summaries with the standard template start with a fixed-format preamble (~88 characters), followed by "Sex:" as the first structured field. The check assumes that preamble is a fixed length. We do not apply it, so we attempt extraction on all discharge summaries including poorly structured ones. This may explain differences in extraction rates.
 
 **Minimum length threshold.** Their PhysioNet documentation mentions excluding BHC pairs with fewer than 100 characters, though this threshold does not appear in the published code. We flag extractions shorter than 100 characters but do not exclude them.
 
@@ -229,11 +229,11 @@ A detailed review of the Stanford code and the associated paper (Aali et al., JA
 
 ### Summary
 
-The comparison confirms that our regex-based approach is reasonable and in some ways more thorough than published work: broader header coverage (case-insensitive matching with abbreviated variants), addendum deduplication that the Stanford code lacks, and structured extraction metadata for quality analysis. Specifically, our failure-reason breakdown can explain the ~19% drop rate from the Stanford paper.
+Two differences affect what comes out of the pipeline: our header matching is case-insensitive and covers abbreviated variants, and we return structured metadata alongside the extracted text. We report a failure reason for each of the 38,464 MIMIC-IV notes that fail extraction. The Stanford paper reports no breakdown for its ~19% drop.
 
 ## Comparison with Kruse et al.
 
-Kruse et al. ("Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction," arXiv:2501.18724) use a minimal regex to extract the BHC from MIMIC-III discharge summaries at evaluation time. Their extraction is not a data preparation step: the full discharge summary is saved verbatim as the gold standard, and section slicing happens only when computing metrics. The extraction logic is in `evaluation/evaluate_ds.py::extract_sections()` ([source](https://github.com/LARK-NLP-Lab/longitudinal_clinical_summarization/blob/main/evaluation/evaluate_ds.py)).
+Kruse et al. (2025) use a minimal regex to extract the BHC from MIMIC-III discharge summaries at evaluation time. Their extraction is not a data preparation step: the full discharge summary is saved verbatim as the gold standard, and section slicing happens only when computing metrics. The extraction logic is in `evaluation/evaluate_ds.py::extract_sections()` ([source](https://github.com/LARK-NLP-Lab/longitudinal_clinical_summarization/blob/main/evaluation/evaluate_ds.py)).
 
 **Their approach.** Two start patterns (`Brief Hospital Course:` and `HOSPITAL COURSE:`), six end patterns (`Discharge Medications:`, `DISCHARGE STATUS:`, `Medications on Admission:`, `CONDITION ON DISCHARGE:`, `DISCHARGE DIAGNOSES:`, `DISCHARGE CONDITION:`). BHC is the text between the end of the start marker and the beginning of the first end marker. No fallback if either is missing (returns empty string). No start-of-line anchor on the start pattern. No case-insensitive matching (the two patterns are literal case variants).
 
@@ -290,7 +290,34 @@ Half are PHI de-identification artifacts. MIMIC-III's de-identification inserts 
 
 Half are unrecognized prefix variants not in our pattern list. Examples: "REVIEW OF HOSPITAL COURSE:", "ADDENDUM - HOSPITAL COURSE:", "MEDICAL INTENSIVE CARE UNIT HOSPITAL COURSE:", "CONTINUING HIS HOSPITAL COURSE:", "REMAINING HOSPITAL COURSE:". These are legitimate but rare headers (each appears 1-4 times in the full corpus).
 
-All are genuine BHC sections with real clinical narrative (not false positives). This represents a 0.06% gap (31/52,726) that could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap. The affected cases are too few to justify the added pattern complexity and false-positive risk.
+All are genuine BHC sections with real clinical narrative (not false positives). The gap is 0.06% (31/52,726) and could be closed by either relaxing the start-of-line anchor or adding patterns for PHI artifacts and rare prefixes. The PHI artifact patterns are MIMIC-specific and would not generalize to other clinical datasets. We do not address this gap. The affected cases are too few to justify the added pattern complexity and false-positive risk.
+
+## Comparison with Adams et al. (clin-sum)
+
+Adams et al. (2021) introduce the task of hospital-course summarization and build CLINSUM from Columbia University Irving Medical Center notes rather than MIMIC. Their released code publishes the extraction used to build the dataset (`preprocess/section_utils.py::extract_hospital_course()`, [source](https://github.com/griff4692/clin-sum)). The paper documents no extraction method beyond a length filter that removes "any incorrectly parsed BHC sections." We read the repository at `master`, which publishes no release or tag.
+
+**Their approach.** Split the note on a generic header detector (mixed caps followed by a colon, all caps followed by a newline, all caps followed by a colon, plus two course-specific patterns), then keep the sections whose header contains the substring "course" and runs under 50 characters. Extraction walks forward from that header and truncates at the first sub-header matching a blocklist of 51 section-name patterns. Sub-headers absent from the blocklist pass through. When two course headers are adjacent and identical apart from case and punctuation, the earlier one is dropped as a start candidate. When a note yields more than one course section, the longest wins.
+
+### Design differences
+
+| Dimension | Ours | clin-sum |
+|-----------|------|----------|
+| Start patterns | 4 case-insensitive regexes with priority ordering | Generic header detector plus a "course" substring test |
+| Start anchoring | `^` (start of line, `re.MULTILINE`) | Mixed. Three of five patterns anchor to line start, tab, or 4+ spaces. The rest are unanchored |
+| Header variants | Enumerated ("summary of", "concise summary of", "history of", "nicu course", "hosp course") | Any prefix, matched by substring |
+| End patterns | 15 patterns, allowlist of sections that follow the BHC | 51 patterns, blocklist applied at any position |
+| Missing boundary | Extracts to end of note | Extracts to end of note |
+| Internal sub-headers | Pass through (excluded from the boundary list) | Pass through unless on the blocklist |
+| Multiple BHC sections | First match | Longest match |
+| Adjacent duplicate headers | First match | Starts at the second |
+| Minimum length | Flagged below 100 characters, not excluded | Section discarded below 25 characters of body |
+| Output | Text plus structured metadata | HTML-tagged text (`<c>`, `<h>`, `<p>`) |
+
+The substring test accepts any prefix, including the rare variants we miss (see [Why Kruse captures 31 cases we miss](#why-kruse-captures-31-cases-we-miss)). It also matches "ER Course", "Clinic Course", and "OR Course".
+
+### Why we did not run a head-to-head
+
+The Stanford and Kruse comparisons above run both extractors over the same MIMIC notes. Nothing equivalent is available here. CLINSUM is Columbia data from 2010-2014 and is not publicly released, so there is no shared cohort and no published extraction rate to validate against. Their algorithm is pure regex with no Columbia-specific data dependency, so it would run on MIMIC-III, but the result would measure their patterns against ours on our data rather than reproduce anything they report. We record the design differences and did not run it.
 
 ## Known Limitations
 
@@ -306,7 +333,9 @@ Some discharge notes contain the phrase "Brief Hospital Course" more than once. 
 | Inline references | 108 | Mid-sentence uses of the phrase ("see brief hospital course", "his brief hospital course was complicated by..."), not section headers. |
 | True structural duplicates | 81 | Two separate BHC sections at different positions in the note, typically hundreds or thousands of characters apart. |
 
-The true structural duplicates are the only category that affects extraction. The extractor uses a first-match strategy (`extract.py`): it tries each header pattern in priority order and takes the first match. When a note has two structurally separate BHC headers, first-match captures everything from the earlier header to the end boundary, which may include non-BHC sections (Past Medical History, Physical Exam, Pertinent Results) that fall between the two headers.
+The true structural duplicates are the only category that affects extraction. Back-to-back duplicates place both headers before the same body, so first-match reaches the same content either way. The clin-sum code behind Adams et al. (2021) handles them by starting at the second header, dropping the earlier of two adjacent headers that are identical apart from case and punctuation (`preprocess/section_utils.py`, `extract_hospital_course()`). We do not handle this case specially.
+
+The extractor uses a first-match strategy (`extract.py`): it tries each header pattern in priority order and takes the first match. When a note has two structurally separate BHC headers, first-match captures everything from the earlier header to the end boundary, which may include non-BHC sections (Past Medical History, Physical Exam, Pertinent Results) that fall between the two headers.
 
 Of the 81 true structural duplicates, 7 produce contaminated extractions where the first-match BHC contains non-BHC sections. In a representative case, a 23-day admission had a preliminary BHC summary between History of Present Illness and Past Medical History, while the canonical BHC with a structured problem list appeared later in the standard position after Pertinent Results. The extractor captures from the first header, including Past Medical History, Social History, Family History, Physical Exam, and Pertinent Results in the extracted BHC. The remaining 74 true structural duplicates produce clean first-match extractions without non-BHC section contamination.
 
@@ -317,6 +346,8 @@ This analysis covers only the "Brief Hospital Course" header (74.3% of successfu
 #### Why we keep the first-match strategy
 
 Switching to a last-match strategy would fix 6 of the 7 affected cases (one has an unusual structure where neither match is clean). However, it would also change the extraction for the 74 clean structural duplicates, producing shorter BHCs that capture only the content after the final header. For the remaining ~59,350 single-header notes, first and last match are identical.
+
+A third option is longest-match, used by the clin-sum code behind Adams et al. (2021) (`preprocess/section_utils.py`, `resolve_course()`). It changes nothing on the cases at issue: both candidates run to the same end boundary, so the longest is the earlier one, which is what first-match already returns. Length separates their candidates because their extraction truncates at non-BHC sub-headers.
 
 A more targeted approach would use first match by default and fall back to last match when the extraction contains non-BHC section headers. This would fix the 7 bad cases without affecting the rest, but adds detection logic that is fragile and hard to validate for a problem that affects 0.01% of extractions (7 out of 51,131).
 
@@ -330,7 +361,7 @@ A representative example from MIMIC-IV: the actual hospital course narrative occ
 
 A similar pattern appears in MIMIC-III: the BHC contains a transfer summary with its own Past Medical History, Allergies, and Medications on Transfer sections embedded mid-narrative. The clinician documented the patient's transfer from an outside hospital by pasting the transfer note directly into the hospital course.
 
-### Prevalence
+#### Prevalence
 
 We scanned all successful extractions for markers of embedded content: lines matching "HPI:", "History of Present Illness:", "Past Medical History:", "PMH:", "Medications:", "Current Medications:", signature lines ("Signed by ... on"), and consult/admission note headers. These are heuristic markers, not a precise count. Some matches may be legitimate BHC content (a clinician mentioning "Medications:" as a sub-header within a domain-organized course), and some embedded content may not match any of these patterns.
 
@@ -343,21 +374,23 @@ We scanned all successful extractions for markers of embedded content: lines mat
 | Embedded signature | 1 (<0.1%) | 45 (<0.1%) |
 | Embedded consult | 2 (<0.1%) | 19 (<0.1%) |
 
-The most common marker is "Medications:" or "Current Medications:" appearing on its own line within the BHC. This differs from the end-boundary pattern "Medications on Discharge:". It typically represents a medications list from an embedded admission or transfer note. The overall contamination rate is low (2.2% in MIMIC-III, 0.3% in MIMIC-IV), but the affected extractions can be substantially longer than expected because the embedded content adds thousands of characters.
+The most common marker is "Medications:" or "Current Medications:" appearing on its own line within the BHC. This differs from the end-boundary pattern "Medications on Discharge:". It typically represents a medications list from an embedded admission or transfer note. The overall contamination rate is low (2.1% in MIMIC-III, 0.3% in MIMIC-IV), but the affected extractions can be substantially longer than expected because the embedded content adds thousands of characters.
 
-### Implications for downstream tasks
+#### Implications for downstream tasks
 
 For BHC generation, embedded sub-documents create noise in the reference text. A model trained to generate BHCs from source notes would see these embedded admission notes and consult entries as part of the target output, potentially learning to reproduce content that a clinician would not include in a well-written hospital course. The effect is likely small given the low prevalence, but it matters when interpreting length statistics or when individual extractions appear unusually long.
 
 The contamination rate is lower in MIMIC-IV than MIMIC-III, consistent with MIMIC-IV representing more recent clinical practice where EHR systems may structure notes differently.
 
-### Why we do not attempt to fix this
+#### Why we do not attempt to fix this
 
 Detecting embedded sub-documents reliably would require either a much larger set of boundary patterns (with the attendant risk of false positives that truncate legitimate BHC content) or a model-based approach that understands document structure. Both options introduce more complexity and error modes than the current approach. Given the low prevalence, the pragmatic choice is to document the limitation and account for it when interpreting results, rather than risk degrading the 97-99% of extractions that are clean.
 
 ## Case review findings
 
-We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and structure classification. The sample was stratified across datasets and structural categories, with most cases analyzed programmatically and a small subset manually reviewed. All extraction boundaries were verified as correct.
+We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and the format labels the binary classifier produced at the time. The sample was stratified by those labels, with most cases analyzed programmatically and a small subset manually reviewed. All extraction boundaries were verified as correct.
+
+This review predates the three-category taxonomy and is what motivated it. The open-coding pass that produced the taxonomy is a separate sample of 50 sections, described under [Three-category taxonomy](extraction-design.md#three-category-taxonomy).
 
 Key findings:
 
@@ -367,6 +400,6 @@ Key findings:
 
 ## References
 
-- Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2024). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA. doi:10.1093/jamia/ocae312.
-- Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021.
-- Kruse, M., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. arXiv:2501.18724.
+- Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2025). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA, 32(3), 470-479. doi:10.1093/jamia/ocae312.
+- Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021, 4794-4811. doi:10.18653/v1/2021.naacl-main.382.
+- Kruse, M., Hu, S., Derby, N., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. Findings of EMNLP 2025, 20715-20735. doi:10.18653/v1/2025.findings-emnlp.1128. Preprint: arXiv:2501.18724.
