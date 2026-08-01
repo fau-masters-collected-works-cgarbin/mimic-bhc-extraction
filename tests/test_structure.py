@@ -358,6 +358,12 @@ class TestModifiers:
             ">> ACTIVE ISSUES:",
             ">> ACTIVE ISSUES",
             "*Chronic Issues:",
+            # "Problems" is the same partition under a different noun.
+            "ACUTE/ACTIVE PROBLEMS:",
+            "CHRONIC/STABLE PROBLEMS:",
+            "ACTIVE PROBLEMS",
+            # Markdown bold wraps the header without changing it.
+            "**ACUTE ISSUES**",
         ]:
             text = f"""\
 {header}
@@ -395,6 +401,18 @@ class TestModifiers:
 # Problem1: No active issues. Continued home medications.
 
 # Problem2: This is a chronic issue for the patient.
+"""
+        result = classify_bhc_structure(text)
+        assert MODIFIER_ACUTE_CHRONIC not in result.modifiers
+
+    def test_no_false_acute_chronic_problems(self):
+        """A line opening with the keyword but continuing into prose is not a header."""
+        text = """\
+Chronic problems were managed per the outpatient regimen.
+
+# Problem1: details
+
+# Problem2: details
 """
         result = classify_bhc_structure(text)
         assert MODIFIER_ACUTE_CHRONIC not in result.modifiers

@@ -92,8 +92,14 @@ def _has_nicu_specific_domain(bhc_text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Detect labeled sections using structural markers. Each pattern matches
 # a line that starts a new clinical-domain section.
+#
+# The patterns feed a count compared against a threshold, so dropping one
+# reclassifies admissions as narrative rather than merely losing a match. None
+# is inert: each is the sole marker in admissions that would otherwise change
+# category. Check with scripts/ablate_structure_rules.py.
 
 # Hash-prefixed entries: # Problem, ## Problem, ##. Problem
+# The dominant marker, ahead of the rest by an order of magnitude.
 _HASH_ENTRY_RE = re.compile(
     r"^[ \t]*#{1,2}\.?[ \t]*[A-Za-z]",
     re.MULTILINE,
@@ -125,12 +131,14 @@ _NUM_CLOSEPAREN_RE = re.compile(r"^[ \t]*\d+\)[ \t]*[A-Za-z]", re.MULTILINE)
 # The header is a short capitalized phrase (under 40 chars) followed by
 # a colon. It may have content after the colon on the same line
 # (e.g., "Neuro: Head CT negative") or stand alone.
+# The only pattern needing the discharge-header exclusion below.
 _STANDALONE_HEADER_RE = re.compile(
     r"^[ \t]*[A-Z][A-Za-z /\-]{1,40}:[ \t]",
     re.MULTILINE,
 )
 
 # Asterisk/bullet entries: * HEENT, * CV
+# Rare, and kept because it is the sole marker where it appears.
 _ASTERISK_ENTRY_RE = re.compile(
     r"^[ \t]*\*[ \t]*[A-Za-z]",
     re.MULTILINE,
@@ -244,15 +252,25 @@ def _detect_numbering_convention(bhc_text: str) -> str:
 # Modifier detection
 # ---------------------------------------------------------------------------
 
-# Acute/chronic partition headers on their own lines. Matches keywords
-# acute, active, chronic, stable, inactive followed by "issues". Allows
-# optional prefixes (>>, *, #) and optional trailing = underlines.
+# Acute/chronic partition headers on their own lines.
+#
+# Every component below was ablated against MIMIC-III and MIMIC-IV, and none is
+# inert: removing any one of them, down to the optional plural, changes how some
+# admissions classify. Check with scripts/ablate_structure_rules.py before
+# deleting anything that looks redundant.
+#
+# The end anchor is what makes the optional colon safe. A third of real headers
+# carry no colon, so without it "Chronic problems were managed..." reads as one.
+# Divider styles outside the prefix and suffix sets (<<, [], --) are missed.
 _ACUTE_CHRONIC_RE = re.compile(
+    # prefix dividers >> * #
     r"^[ \t]*(?:[>*#]+[ \t]*)?"
     r"(?:acute|active|chronic|stable|inactive)"
+    # compound second keyword, as in ACUTE/ACTIVE
     r"[/ \t]*(?:active|stable|chronic)?"
-    r"[ \t]*issues?[ \t]*:?"
-    r"[ \t]*=*[ \t]*$",
+    r"[ \t]*(?:issues?|problems?)[ \t]*:?"
+    # trailing = underline or markdown bold close
+    r"[ \t]*[*=]*[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
