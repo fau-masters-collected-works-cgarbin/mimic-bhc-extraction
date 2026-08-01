@@ -235,8 +235,9 @@ The `scripts/` directory contains standalone scripts for deeper quality assessme
 - `scripts/verify_bhc_extraction.py`: Diagnostic checks on extraction quality. Categorizes failures and spot-checks extraction boundaries. Requires extraction results with `--include-note-text`.
 - `scripts/generate_bhc_audit.py`: Generates audit JSONL files with review flags (rare headers, short extractions, unbounded sections) for manual review.
 - `scripts/compare_bhc_extraction_kruse.py`: Compares our extraction against Kruse et al.'s (2025) minimal regex approach on the same notes. Reports coverage differences and text overlap.
+- `scripts/ablate_structure_rules.py`: Ablates the structure-detection rules in `mimic_bhc/structure.py` to find inert components, meaning ones whose removal changes no classification. Rerun it after editing either rule, because the rule comments cite its results.
 
-All scripts take `--input` (and `--output` where applicable) as explicit paths:
+Scripts take explicit paths as arguments:
 
 ```bash
 uv run python scripts/verify_bhc_extraction.py \
@@ -248,6 +249,9 @@ uv run python scripts/generate_bhc_audit.py \
 
 uv run python scripts/compare_bhc_extraction_kruse.py \
     --input results/bhc_extraction_mimic-iii.jsonl
+
+uv run python scripts/ablate_structure_rules.py \
+    --results-dir ~/projects/mimic-admission-explorer/results
 ```
 
 ## MIMIC Format Support

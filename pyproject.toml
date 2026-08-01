@@ -80,7 +80,11 @@ ignore = [
     "ANN",     # annotations optional in scripts
     "PLC0415", # deferred imports acceptable in scripts
     "PLR0915", # long functions acceptable in diagnostic scripts
+    "PLR0912", # branchy functions acceptable in diagnostic scripts
     "C901",    # complexity acceptable in diagnostic scripts
+]
+"scripts/ablate_structure_rules.py" = [
+    "SLF001",  # ablating the detection rules requires reaching into them
 ]
 
 [tool.ruff.format]
