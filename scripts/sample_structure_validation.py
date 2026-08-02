@@ -96,8 +96,8 @@ MAX_DISAGREEMENTS = {
 }
 
 # An admission is eligible when the extractor found a BHC of more than this
-# many characters. Duplicated in scripts/ablate_structure_rules.py, which has
-# to cover the same pool. Change both together.
+# many characters. The three scripts under scripts/ that cover this pool each
+# carry a copy. Change them together.
 _MIN_BHC_CHARS = 500
 
 # hadm_ids are 6 digits in MIMIC-III and 8 in MIMIC-IV.

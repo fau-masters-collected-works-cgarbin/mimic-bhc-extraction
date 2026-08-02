@@ -33,8 +33,8 @@ from mimic_bhc import structure
 DATASETS = ("mimic-iii", "mimic-iv")
 
 # An admission is eligible when the extractor found a BHC of more than this
-# many characters. Duplicated in scripts/sample_structure_validation.py, which
-# has to draw from the same pool. Change both together.
+# many characters. The three scripts under scripts/ that cover this pool each
+# carry a copy. Change them together.
 _MIN_BHC_CHARS = 500
 
 # Components of _ACUTE_CHRONIC_RE, assembled so one can be swapped out at a time.

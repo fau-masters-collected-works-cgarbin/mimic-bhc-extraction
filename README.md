@@ -240,6 +240,7 @@ The `scripts/` directory contains standalone scripts for deeper quality assessme
 - `scripts/generate_bhc_audit.py`: Generates audit JSONL files with review flags (rare headers, short extractions, unbounded sections) for manual review.
 - `scripts/compare_bhc_extraction_kruse.py`: Compares our extraction against Kruse et al.'s (2025) minimal regex approach on the same notes. Reports coverage differences and text overlap.
 - `scripts/ablate_structure_rules.py`: Ablates the structure-detection rules in `mimic_bhc/structure.py` to find inert components, meaning ones whose removal changes no classification. Rerun it after editing either rule, because the rule comments cite its results.
+- `scripts/bhc_format_stats.py`: Reports the corpus figures for BHC organizational format: how narrative and domain-organized split, the median length of each, and how often the acute/chronic partition appears. Computed from the extraction JSONL.
 - `scripts/sample_structure_validation.py`: Draws the sample that validates the BHC format coding rules against `mimic_bhc/structure.py`. Stratified into three groups, blinded, and reproducible from the recorded seed. Reads the extraction results from `--results-dir` and writes a coding sheet and a separate key to `--out-dir`.
 
 Scripts take explicit paths as arguments:
@@ -257,6 +258,8 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
 
 uv run python scripts/ablate_structure_rules.py \
     --results-dir ../phd-dissertation-experiment-results/bhc_extraction
+
+uv run python scripts/bhc_format_stats.py --input bhc.jsonl
 
 uv run python scripts/sample_structure_validation.py \
     --results-dir ../phd-dissertation-experiment-results/bhc_extraction \

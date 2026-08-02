@@ -82,6 +82,7 @@ ignore = [
     "PLR0915", # long functions acceptable in diagnostic scripts
     "PLR0912", # branchy functions acceptable in diagnostic scripts
     "C901",    # complexity acceptable in diagnostic scripts
+    "PLR2004", # comparing against a literal is fine in scripts
 ]
 "scripts/ablate_structure_rules.py" = [
     "SLF001",  # ablating the detection rules requires reaching into them
