@@ -10,8 +10,8 @@ structural features:
 Also records the numbering convention, and detects two modifiers:
 acute/chronic partition and a transitional issues section.
 
-The taxonomy and detection rules are defined in the codebook (see
-BHC organizational structure analysis documentation).
+docs/bhc-format-coding-rules.md states the same rules for a person to
+apply by hand, which is how this module is validated.
 """
 
 from __future__ import annotations
@@ -325,15 +325,17 @@ def classify_bhc_structure(bhc_text: str) -> StructureResult:
     # Standardized template (NICU)
     # Requires 4+ NICU domains AND at least one NICU-specific domain
     # (Sensory or Psychosocial) to avoid false positives from non-NICU
-    # organ-system problem lists.
-    nicu_count = _count_nicu_domains(bhc_text)
-    is_nicu_template = nicu_count >= _MIN_NICU_DOMAINS and _has_nicu_specific_domain(bhc_text)
-    if is_nicu_template:
-        return StructureResult(
-            category=CATEGORY_STANDARDIZED_TEMPLATE,
-            nicu_domain_count=nicu_count,
-            modifiers=tuple(modifiers),
-        )
+    # organ-system problem lists. The specific-domain check comes first
+    # because few admissions pass it and it costs two patterns against the
+    # count's nine.
+    if _has_nicu_specific_domain(bhc_text):
+        nicu_count = _count_nicu_domains(bhc_text)
+        if nicu_count >= _MIN_NICU_DOMAINS:
+            return StructureResult(
+                category=CATEGORY_STANDARDIZED_TEMPLATE,
+                nicu_domain_count=nicu_count,
+                modifiers=tuple(modifiers),
+            )
 
     # Domain-organized
     section_count = _count_labeled_sections(bhc_text)
