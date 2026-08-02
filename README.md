@@ -219,13 +219,17 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 
 ### Typical workflow: extract then inspect
 
+> [!NOTE]
+>
+> Extracted MIMIC data is kept in the sibling directory ../phd-dissertation-experiment-results to prevent accidentally committing private data.
+
 Run extraction with the CLI, then use `stats` to review the results (using `MIMIC3_NOTES` from [Command-line](#command-line) above):
 
 ```bash
 mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
-    --output results/bhc_extraction_mimic-iii.jsonl --include-note-text
+    --output ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl --include-note-text
 
-mimic-bhc-extract stats --input results/bhc_extraction_mimic-iii.jsonl
+mimic-bhc-extract stats --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 ```
 
 ### Verification and comparison scripts
@@ -236,22 +240,29 @@ The `scripts/` directory contains standalone scripts for deeper quality assessme
 - `scripts/generate_bhc_audit.py`: Generates audit JSONL files with review flags (rare headers, short extractions, unbounded sections) for manual review.
 - `scripts/compare_bhc_extraction_kruse.py`: Compares our extraction against Kruse et al.'s (2025) minimal regex approach on the same notes. Reports coverage differences and text overlap.
 - `scripts/ablate_structure_rules.py`: Ablates the structure-detection rules in `mimic_bhc/structure.py` to find inert components, meaning ones whose removal changes no classification. Rerun it after editing either rule, because the rule comments cite its results.
+- `scripts/sample_structure_validation.py`: Draws the sample that validates the BHC format coding rules against `mimic_bhc/structure.py`. Stratified into three groups, blinded, and reproducible from the recorded seed. Reads the extraction results from `--results-dir` and writes a coding sheet and a separate key to `--out-dir`.
 
 Scripts take explicit paths as arguments:
 
 ```bash
 uv run python scripts/verify_bhc_extraction.py \
-    --input results/bhc_extraction_mimic-iii.jsonl
+    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 
 uv run python scripts/generate_bhc_audit.py \
-    --input results/bhc_extraction_mimic-iii.jsonl \
-    --output results/bhc_audit_mimic-iii.jsonl
+    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl \
+    --output ../phd-dissertation-experiment-results/bhc_extraction/bhc_audit_mimic-iii.jsonl
 
 uv run python scripts/compare_bhc_extraction_kruse.py \
-    --input results/bhc_extraction_mimic-iii.jsonl
+    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 
 uv run python scripts/ablate_structure_rules.py \
-    --results-dir ~/projects/mimic-admission-explorer/results
+    --results-dir ../phd-dissertation-experiment-results/bhc_extraction
+
+uv run python scripts/sample_structure_validation.py \
+    --results-dir ../phd-dissertation-experiment-results/bhc_extraction \
+    --exclude previously-annotated-admissions.md \
+    --seed 20260802 \
+    --out-dir ../phd-dissertation-experiment-results/bhc_structure_validation
 ```
 
 ## MIMIC Format Support
@@ -274,7 +285,7 @@ uv run python scripts/ablate_structure_rules.py \
 - **Single data structure**: `BHCResult` is the canonical representation throughout, from extraction through serialization. See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for how it gets populated in layers.
 - **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch module adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
 
-For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md).
+For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md). For the rules a person applies when hand-coding BHC format, which is how `classify_bhc_structure()` is validated, see [docs/bhc-format-coding-rules.md](docs/bhc-format-coding-rules.md).
 
 ## Development
 

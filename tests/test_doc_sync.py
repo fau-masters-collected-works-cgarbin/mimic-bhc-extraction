@@ -14,6 +14,13 @@ from pathlib import Path
 
 from mimic_bhc.patterns import _BHC_HEADER_PATTERNS, _END_BOUNDARIES
 from mimic_bhc.stats import MIN_BHC_LENGTH
+from mimic_bhc.structure import (
+    _MIN_DOMAIN_SECTIONS,
+    CATEGORY_DOMAIN_ORGANIZED,
+    CATEGORY_NARRATIVE,
+    MODIFIER_ACUTE_CHRONIC,
+    classify_bhc_structure,
+)
 
 _REPO_ROOT = Path(__file__).parent.parent
 _DESIGN_DOC = _REPO_ROOT / "docs" / "extraction-design.md"
@@ -55,6 +62,53 @@ class TestDesignDocMatchesCode:
         documented = int(match.group(1))
         assert documented == MIN_BHC_LENGTH, (
             f"Doc claims {documented}, code has MIN_BHC_LENGTH={MIN_BHC_LENGTH}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# bhc-format-coding-rules.md
+# ---------------------------------------------------------------------------
+_CODING_RULES_DOC = _REPO_ROOT / "docs" / "bhc-format-coding-rules.md"
+
+# Each example is introduced by a sentence naming the label it illustrates,
+# then a fenced block. The intro's first word is the expected answer.
+_EXAMPLE_RE = re.compile(
+    r"^([A-Za-z-]+),[^\n]*:\n\n```text\n(.*?)\n```",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+class TestCodingRulesMatchTheClassifier:
+    """An example the classifier disagrees with would coach that disagreement,
+    so every one of them has to be a case the two settle the same way.
+    """
+
+    def _examples(self):
+        return _EXAMPLE_RE.findall(_CODING_RULES_DOC.read_text())
+
+    def test_every_example_is_read_the_way_the_doc_says(self):
+        expected = {
+            "Domain-organized": lambda r: r.category == CATEGORY_DOMAIN_ORGANIZED,
+            "Narrative": lambda r: r.category == CATEGORY_NARRATIVE,
+            "Present": lambda r: MODIFIER_ACUTE_CHRONIC in r.modifiers,
+            "Absent": lambda r: MODIFIER_ACUTE_CHRONIC not in r.modifiers,
+        }
+        examples = self._examples()
+        assert len(examples) == 4, f"Expected 4 examples in the doc, found {len(examples)}"
+        for label, text in examples:
+            assert label in expected, f"Example labeled {label!r} has no expectation here"
+            assert expected[label](classify_bhc_structure(text)), (
+                f"The {label!r} example does not classify as the doc says"
+            )
+
+    def test_category_threshold(self):
+        """Doc says 'two or more explicitly labeled sections'."""
+        text = _CODING_RULES_DOC.read_text()
+        match = re.search(r"\*\*(\w+) or more\*\* explicitly labeled sections", text)
+        assert match is not None, "Could not find the category threshold claim in doc"
+        documented = _word_to_int(match.group(1))
+        assert documented == _MIN_DOMAIN_SECTIONS, (
+            f"Doc claims {documented}, code has _MIN_DOMAIN_SECTIONS={_MIN_DOMAIN_SECTIONS}"
         )
 
 

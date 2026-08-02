@@ -1,36 +1,29 @@
 """Ablate the structure-detection rules in structure.py.
 
 Question: is any component inert, meaning its removal changes no
-classification? Inert components can be deleted. The rules grew by addition,
-one variant at a time, and nothing recorded whether each addition still affects
-the result.
+classification? Inert components can be deleted.
 
 Removes one component at a time and reports how many admissions change
 classification. Zero means inert. The rule comments in structure.py cite this
 script, so rerun it after editing either rule.
 
-Two rules are covered, and a component is a different thing in each:
-
 - _count_labeled_sections, where a component is one whole pattern. The patterns
   feed a count compared against a threshold, so removing one reclassifies
-  admissions as narrative rather than only losing a match. The threshold is
-  read from the module, so changing it also changes these results.
+  admissions as narrative rather than only losing a match.
 - _ACUTE_CHRONIC_RE, where a component is a sub-expression of the single
   pattern. Removing one loses matches. Removing an anchor adds them, so the
   anchors are reported as matches admitted.
 
-Reads extraction JSONL and the structure CSV that fixes the eligible pool.
-Both live outside this repository, which stores no MIMIC data.
+Reads the extraction JSONL for both datasets from --results-dir.
 
 Usage:
     uv run python scripts/ablate_structure_rules.py \
-        --results-dir ~/projects/mimic-admission-explorer/results
+        --results-dir ../phd-dissertation-experiment-results/bhc_extraction
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import re
 from pathlib import Path
@@ -39,7 +32,12 @@ from mimic_bhc import structure
 
 DATASETS = ("mimic-iii", "mimic-iv")
 
-# Pieces of _ACUTE_CHRONIC_RE, assembled so one can be swapped out at a time.
+# An admission is eligible when the extractor found a BHC of more than this
+# many characters. Duplicated in scripts/sample_structure_validation.py, which
+# has to draw from the same pool. Change both together.
+_MIN_BHC_CHARS = 500
+
+# Components of _ACUTE_CHRONIC_RE, assembled so one can be swapped out at a time.
 PREFIX = r"^[ \t]*(?:[>*#]+[ \t]*)?"
 KEYS = r"(?:acute|active|chronic|stable|inactive)"
 COMPOUND = r"[/ \t]*(?:active|stable|chronic)?"
@@ -98,12 +96,14 @@ def count_sections(text, *, skip=None, skip_standalone=False, discharge_filter=T
 def iter_bhcs(results_dir):
     """Yield BHC text for every admission in the eligible pool."""
     for dataset in DATASETS:
-        with (results_dir / f"bhc_structure_{dataset}.csv").open() as f:
-            eligible = {row["hadm_id"] for row in csv.DictReader(f)}
         with (results_dir / f"bhc_extraction_{dataset}.jsonl").open() as f:
             for line in f:
                 record = json.loads(line)
-                if str(record["hadm_id"]) in eligible:
+                eligible = (
+                    record["extraction_success"]
+                    and (record["bhc_char_count"] or 0) > _MIN_BHC_CHARS
+                )
+                if eligible:
                     yield record["bhc_text"] or ""
 
 
@@ -167,7 +167,10 @@ def report(counts, ac_lost, ac_gained, section_lost):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--results-dir",
         required=True,
