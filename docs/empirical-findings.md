@@ -180,7 +180,7 @@ Distribution of the three-category taxonomy (see [Structure classification](extr
 
 Domain-organized is the majority format in both datasets. Standardized templates are exclusively NICU discharge summaries and appear only in MIMIC-III (no neonatal admissions in MIMIC-IV).
 
-An earlier binary classifier based on organ-system sub-headers reported domain-organized rates of 0.7% (MIMIC-III) and 0.4% (MIMIC-IV). These were severe undercounts because the classifier only detected organ-system sub-headers, missing disease-specific problem lists, numbered entries, and other structural markers. The three-category taxonomy replaced the binary classification for all analysis purposes.
+An earlier binary classifier based on organ-system sub-headers severely undercounted domain-organized BHCs, because it detected only organ-system sub-headers and missed disease-specific problem lists, numbered entries, and other structural markers. The current classifier replaced it for all analysis purposes. The rates that classifier reported are not quoted here, since it was removed in `0c5c566` and its denominator is not recorded.
 
 ### Service as predictor
 

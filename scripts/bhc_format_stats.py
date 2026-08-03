@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,8 +31,8 @@ from mimic_bhc.structure import (
 )
 
 # An admission is eligible when the extractor found a BHC of more than this
-# many characters. The three scripts under scripts/ that cover this pool each
-# carry a copy. Change them together.
+# many characters. Every script under scripts/ that reads this pool carries a
+# copy. Change them together.
 _MIN_BHC_CHARS = 500
 
 
@@ -45,6 +45,7 @@ class Summary:
     domain: int
     template: int
     acute_chronic: int
+    median: int
     narrative_median: int
     domain_median: int
 
@@ -75,34 +76,45 @@ def summarize(rows):
         domain=len(domain_lengths),
         template=template,
         acute_chronic=acute_chronic,
+        median=round(statistics.median(narrative_lengths + domain_lengths)),
         narrative_median=round(statistics.median(narrative_lengths)),
         domain_median=round(statistics.median(domain_lengths)),
     )
 
 
 def read_rows(path):
-    """Group every eligible admission by dataset, classified and measured."""
+    """Group every eligible admission by dataset, classified and measured.
+
+    Also counts the discharge summaries per dataset, eligible or not, which is
+    the denominator the eligible pool is reported against. One record is one
+    discharge summary, after MIMIC-III's addendum deduplication.
+    """
     by_dataset = defaultdict(list)
+    summaries = Counter()
     with path.expanduser().open() as f:
         for line in f:
             record = json.loads(line)
+            dataset = dataset_for(record["hadm_id"])
+            summaries[dataset] += 1
             length = record["bhc_char_count"] or 0
             if not record["extraction_success"] or length <= _MIN_BHC_CHARS:
                 continue
             result = classify_bhc_structure(record["bhc_text"] or "")
-            by_dataset[dataset_for(record["hadm_id"])].append((result, length))
-    return by_dataset
+            by_dataset[dataset].append((result, length))
+    return by_dataset, summaries
 
 
-def report(by_dataset):
+def report(by_dataset, summaries):
     """Print one block per dataset, with shares to two decimal places."""
     for dataset, rows in sorted(by_dataset.items()):
         s = summarize(rows)
-        print(f"\n{dataset}: {s.total:,} eligible BHCs")
+        n = summaries[dataset]
+        print(f"\n{dataset}: {s.total:,} eligible BHCs of {n:,} discharge summaries")
         print(f"  narrative              {s.narrative:>8,}  {s.narrative / s.total:>7.2%}")
         print(f"  domain-organized       {s.domain:>8,}  {s.domain / s.total:>7.2%}")
         print(f"    of which templates   {s.template:>8,}  {s.template / s.total:>7.2%}")
         print(f"  acute/chronic          {s.acute_chronic:>8,}  {s.acute_chronic / s.total:>7.2%}")
+        print(f"  median chars                   {s.median:>8,}")
         print(f"  median chars, narrative        {s.narrative_median:>8,}")
         print(f"  median chars, domain-organized {s.domain_median:>8,}")
 
@@ -119,7 +131,7 @@ def main():
         help="Extraction JSONL for one dataset",
     )
     args = parser.parse_args()
-    report(read_rows(args.input))
+    report(*read_rows(args.input))
 
 
 if __name__ == "__main__":

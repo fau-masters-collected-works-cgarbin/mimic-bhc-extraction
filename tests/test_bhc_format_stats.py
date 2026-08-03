@@ -1,7 +1,10 @@
 """Tests for the corpus figures in scripts/bhc_format_stats.py.
 
-Covers the dataset labels, the folding rule, and the per-category medians.
+Covers the dataset labels, the folding rule, the per-category medians, and the
+eligible-against-total counts.
 """
+
+import json
 
 import bhc_format_stats as stats
 from mimic_bhc.structure import (
@@ -58,3 +61,51 @@ class TestSummarize:
         )
         assert summary.acute_chronic == 2
         assert summary.total == 3
+
+
+class TestReadRows:
+    def test_every_summary_is_counted_but_only_eligible_ones_are_classified(self, tmp_path):
+        """The two counts are different denominators. Collapsing them would lose the total."""
+        path = tmp_path / "bhc.jsonl"
+        path.write_text(
+            "\n".join(
+                json.dumps(r)
+                for r in [
+                    {
+                        "hadm_id": 100001,
+                        "extraction_success": True,
+                        "bhc_char_count": 900,
+                        "bhc_text": "The patient improved. " * 50,
+                    },
+                    {
+                        "hadm_id": 100002,
+                        "extraction_success": True,
+                        "bhc_char_count": 100,
+                        "bhc_text": "Too short.",
+                    },
+                    {
+                        "hadm_id": 100003,
+                        "extraction_success": False,
+                        "bhc_char_count": 0,
+                        "bhc_text": None,
+                    },
+                ]
+            )
+        )
+        by_dataset, summaries = stats.read_rows(path)
+        assert summaries["mimic-iii"] == 3
+        assert len(by_dataset["mimic-iii"]) == 1
+
+
+class TestOverallMedian:
+    def test_the_median_covers_both_formats_together(self):
+        """A median over one format's lengths describes that format, not the corpus."""
+        summary = stats.summarize(
+            [
+                _row(CATEGORY_NARRATIVE, 1000),
+                _row(CATEGORY_NARRATIVE, 2000),
+                _row(CATEGORY_DOMAIN_ORGANIZED, 3000),
+                _row(CATEGORY_DOMAIN_ORGANIZED, 6000),
+            ]
+        )
+        assert summary.median == 2500
