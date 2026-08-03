@@ -87,7 +87,7 @@ After extraction, the batch module classifies each BHC's organizational structur
 
 ### Three-category taxonomy
 
-Open-coding analysis of 50 BHC sections (30 MIMIC-III, 20 MIMIC-IV) produced a three-category taxonomy, validated through human review (42/50 cases, 100% agreement) and applied to both full datasets via the rule-based classifier. See [Empirical Findings](empirical-findings.md#structure-classification-distribution) for distribution rates.
+The classifier assigns three categories over both full datasets. `docs/bhc-format-coding-rules.md` states the rules it implements, and one author hand-coded 40 blinded cases against those rules, agreeing with the classifier on 39 of 40. See [Empirical Findings](empirical-findings.md#structure-classification-distribution) for distribution rates.
 
 **Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events are connected by temporal sequence rather than grouped by clinical domain. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD numbering are typical examples.
 
@@ -99,12 +99,12 @@ The classifier detects all formats identically. Internal sub-headers (whether or
 
 ### Structural modifiers
 
-The classifier also detects four modifiers that capture within-category variation relevant to generation:
+The classifier emits two modifiers alongside the category:
 
-- **Mixed**: Combines elements of more than one format.
-- **Numbering convention**: # vs 1. vs standalone.
-- **Acute/chronic partition**: Explicit ACUTE ISSUES / CHRONIC ISSUES headers.
+- **Acute/chronic partition**: a standalone header labeling a group of problems acute, active, chronic, stable, or inactive.
 - **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
+
+It also records a numbering convention for domain-organized BHCs, `#` against `1.` against a standalone header. That is a field on the result rather than a modifier, and nothing reads it.
 
 The Transitional Issues modifier tracks the handoff content that the end-boundary allowlist intentionally passes through (see [End-boundary patterns](#end-boundary-patterns)).
 

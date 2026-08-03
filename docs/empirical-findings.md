@@ -390,7 +390,7 @@ Detecting embedded sub-documents reliably would require either a much larger set
 
 We sampled 52 cases across both MIMIC-III and MIMIC-IV to verify extraction correctness and the format labels the binary classifier produced at the time. The sample was stratified by those labels, with most cases analyzed programmatically and a small subset manually reviewed. All extraction boundaries were verified as correct.
 
-This review predates the three-category taxonomy and is what motivated it. The open-coding pass that produced the taxonomy is a separate sample of 50 sections, described under [Three-category taxonomy](extraction-design.md#three-category-taxonomy).
+This review predates the three-category taxonomy and is the inspection record its categories and detection rules are based on. Finding that roughly 30% of cases the binary classifier called chronological carried disease-specific headers it could not see is why the current rule counts any structural marker rather than a list of expected section names. See [Three-category taxonomy](extraction-design.md#three-category-taxonomy) for the categories and `docs/bhc-format-coding-rules.md` for the rules.
 
 Key findings:
 

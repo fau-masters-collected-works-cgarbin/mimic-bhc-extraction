@@ -53,13 +53,15 @@ Amoxicillin 500 mg three times daily.
 
 ## Rule 2: acute/chronic partition
 
-Present when the BHC carries **at least one** header labeling a group of problems by acuity. The five words that label such a group are:
+Present when the BHC carries **at least one** header labeling a group of problems by acuity. Five words do that labeling, and any one of them is enough:
 
 - Acute
 - Active
 - Chronic
 - Stable
 - Inactive
+
+The name of this rule is shorthand for that list. `ACTIVE ISSUES` counts, and so does `INACTIVE ISSUES`. Do not read the rule as acute against chronic only, which is the mistake the name invites.
 
 The header must stand on its own line. The same words inside a sentence do not count.
 
