@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from mimic_bhc.model import BHCResult
 
@@ -14,6 +14,17 @@ if TYPE_CHECKING:
 # suspiciously short.  Matches the threshold used in the Stanford
 # MIMIC-IV-Ext-BHC dataset (Aali et al., JAMIA 2024).
 MIN_BHC_LENGTH = 100
+
+# A BHC shorter than this carries too little structure to classify, since a
+# few sentences give the format rules nothing to read. Higher than
+# MIN_BHC_LENGTH, which asks a different question: whether an extraction
+# looks suspiciously short.
+MIN_STRUCTURE_CHARS = 500
+
+
+def is_structure_eligible(record: Mapping[str, Any]) -> bool:
+    """Whether a BHC can be used for structure analysis."""
+    return record["extraction_success"] and record["bhc_char_count"] > MIN_STRUCTURE_CHARS
 
 
 class BHCStats(TypedDict):

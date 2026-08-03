@@ -23,17 +23,13 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from mimic_bhc.stats import is_structure_eligible
 from mimic_bhc.structure import (
     CATEGORY_NARRATIVE,
     CATEGORY_STANDARDIZED_TEMPLATE,
     MODIFIER_ACUTE_CHRONIC,
     classify_bhc_structure,
 )
-
-# An admission is eligible when the extractor found a BHC of more than this
-# many characters. Every script under scripts/ that reads this pool carries a
-# copy. Change them together.
-_MIN_BHC_CHARS = 500
 
 
 @dataclass(frozen=True)
@@ -96,11 +92,10 @@ def read_rows(path):
             record = json.loads(line)
             dataset = dataset_for(record["hadm_id"])
             summaries[dataset] += 1
-            length = record["bhc_char_count"] or 0
-            if not record["extraction_success"] or length <= _MIN_BHC_CHARS:
+            if not is_structure_eligible(record):
                 continue
             result = classify_bhc_structure(record["bhc_text"] or "")
-            by_dataset[dataset].append((result, length))
+            by_dataset[dataset].append((result, record["bhc_char_count"]))
     return by_dataset, summaries
 
 

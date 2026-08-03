@@ -29,13 +29,9 @@ import re
 from pathlib import Path
 
 from mimic_bhc import structure
+from mimic_bhc.stats import is_structure_eligible
 
 DATASETS = ("mimic-iii", "mimic-iv")
-
-# An admission is eligible when the extractor found a BHC of more than this
-# many characters. Every script under scripts/ that reads this pool carries a
-# copy. Change them together.
-_MIN_BHC_CHARS = 500
 
 # Components of _ACUTE_CHRONIC_RE, assembled so one can be swapped out at a time.
 PREFIX = r"^[ \t]*(?:[>*#]+[ \t]*)?"
@@ -99,11 +95,7 @@ def iter_bhcs(results_dir):
         with (results_dir / f"bhc_extraction_{dataset}.jsonl").open() as f:
             for line in f:
                 record = json.loads(line)
-                eligible = (
-                    record["extraction_success"]
-                    and (record["bhc_char_count"] or 0) > _MIN_BHC_CHARS
-                )
-                if eligible:
+                if is_structure_eligible(record):
                     yield record["bhc_text"] or ""
 
 

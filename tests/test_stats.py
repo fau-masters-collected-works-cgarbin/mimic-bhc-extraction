@@ -3,7 +3,12 @@
 import pytest
 
 from mimic_bhc.model import BHCResult
-from mimic_bhc.stats import MIN_BHC_LENGTH, compute_bhc_stats
+from mimic_bhc.stats import (
+    MIN_BHC_LENGTH,
+    MIN_STRUCTURE_CHARS,
+    compute_bhc_stats,
+    is_structure_eligible,
+)
 from mimic_bhc.structure import StructureResult
 
 
@@ -99,3 +104,27 @@ class TestComputeBhcStats:
             "narrative": 300,
             "domain_organized": 3000,
         }
+
+
+# ---------------------------------------------------------------------------
+# Structure eligibility
+# ---------------------------------------------------------------------------
+class TestIsStructureEligible:
+    """Every script that classifies BHC format shares this predicate, so a
+    shift in the boundary would move the corpus all of them report on.
+    """
+
+    def test_excludes_the_threshold_itself(self):
+        assert not is_structure_eligible(
+            {"extraction_success": True, "bhc_char_count": MIN_STRUCTURE_CHARS}
+        )
+
+    def test_includes_one_character_over(self):
+        assert is_structure_eligible(
+            {"extraction_success": True, "bhc_char_count": MIN_STRUCTURE_CHARS + 1}
+        )
+
+    def test_failed_extraction_is_ineligible_at_any_length(self):
+        assert not is_structure_eligible(
+            {"extraction_success": False, "bhc_char_count": MIN_STRUCTURE_CHARS * 10}
+        )

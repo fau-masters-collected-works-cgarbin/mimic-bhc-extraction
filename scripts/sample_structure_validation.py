@@ -60,6 +60,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from mimic_bhc.stats import is_structure_eligible
 from mimic_bhc.structure import (
     CATEGORY_NARRATIVE,
     MODIFIER_ACUTE_CHRONIC,
@@ -94,11 +95,6 @@ MAX_DISAGREEMENTS = {
     "category": 3,  # over the 30 narrative and domain-organized cases pooled
     "acute_chronic": 1,  # over the 10 acute/chronic cases
 }
-
-# An admission is eligible when the extractor found a BHC of more than this
-# many characters. Every script under scripts/ that reads this pool carries a
-# copy. Change them together.
-_MIN_BHC_CHARS = 500
 
 # hadm_ids are 6 digits in MIMIC-III and 8 in MIMIC-IV.
 _HADM_ID_RE = re.compile(r"\b(?:\d{6}|\d{8})\b")
@@ -147,11 +143,7 @@ def iter_records(results_dir):
         with (results_dir / f"bhc_extraction_{dataset}.jsonl").open() as f:
             for line in f:
                 record = json.loads(line)
-                eligible = (
-                    record["extraction_success"]
-                    and (record["bhc_char_count"] or 0) > _MIN_BHC_CHARS
-                )
-                if eligible:
+                if is_structure_eligible(record):
                     yield dataset, str(record["hadm_id"]), record["bhc_text"] or ""
 
 
