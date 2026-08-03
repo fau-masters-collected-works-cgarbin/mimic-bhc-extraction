@@ -207,7 +207,7 @@ Narrative and domain-organized BHCs differ in length by roughly 2x in both datas
 | Domain-organized | 3,239 | 2,617 |
 | Standardized template | 4,006 | n/a |
 
-This length difference has implications for evaluation metrics that are sensitive to length mismatch. See [Why format matters for downstream tasks](extraction-design.md#why-format-matters-for-downstream-tasks) in the design document.
+This length difference has implications for evaluation metrics that are sensitive to length mismatch. See [Why format matters for BHC generation](extraction-design.md#why-format-matters-for-bhc-generation) in the design document.
 
 ## Comparison with Aali et al. (clin-bhc-summ)
 
@@ -303,7 +303,7 @@ Adams et al. (2021) introduce the task of hospital-course summarization and buil
 | Dimension | Ours | clin-sum |
 |-----------|------|----------|
 | Start patterns | 4 case-insensitive regexes with priority ordering | Generic header detector plus a "course" substring test |
-| Start anchoring | `^` (start of line, `re.MULTILINE`) | Mixed. Three of five patterns anchor to line start, tab, or 4+ spaces. The rest are unanchored |
+| Start anchoring | `^` (start of line, `re.MULTILINE`) | Mixed. Two of five patterns anchor to line start, tab, newline, or 4+ whitespace characters. The other three are unanchored |
 | Header variants | Enumerated ("summary of", "concise summary of", "history of", "nicu course", "hosp course") | Any prefix, matched by substring |
 | End patterns | 15 patterns, allowlist of sections that follow the BHC | 51 patterns, blocklist applied at any position |
 | Missing boundary | Extracts to end of note | Extracts to end of note |

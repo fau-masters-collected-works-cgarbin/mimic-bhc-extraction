@@ -1,4 +1,6 @@
-"""Cross-check concrete claims in docs/extraction-design.md against code.
+"""Cross-check concrete claims in the docs against code.
+
+Covers docs/extraction-design.md and docs/bhc-format-coding-rules.md.
 
 These tests verify that documented pattern counts and threshold values stay
 in sync with the code.  If a test fails, update the doc to match the code

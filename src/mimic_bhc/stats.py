@@ -11,8 +11,8 @@ if TYPE_CHECKING:
     from mimic_bhc.model import BHCResult
 
 # Minimum BHC length (characters) below which an extraction is flagged as
-# suspiciously short.  Matches the threshold used in the Stanford
-# MIMIC-IV-Ext-BHC dataset (Aali et al., JAMIA 2024).
+# suspiciously short.  Matches the threshold documented for the
+# MIMIC-IV-Ext-BHC dataset on PhysioNet (Aali et al., JAMIA 2025).
 MIN_BHC_LENGTH = 100
 
 # A BHC shorter than this carries too little structure to classify, since a
