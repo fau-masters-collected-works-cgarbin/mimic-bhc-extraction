@@ -74,16 +74,16 @@ SECTION_PATTERNS = {
 THRESHOLD = structure._MIN_DOMAIN_SECTIONS
 
 
-def count_sections(text, *, skip=None, skip_standalone=False, discharge_filter=True):
+def count_sections(text, *, skip=None, skip_unprefixed=False, discharge_filter=True):
     """Reimplement _count_labeled_sections with one pattern optionally removed."""
     starts = set()
     for name, pattern in SECTION_PATTERNS.items():
         if name != skip:
             starts.update(m.start() for m in pattern.finditer(text))
-    if not skip_standalone:
+    if not skip_unprefixed:
         starts.update(
             m.start()
-            for m in structure._STANDALONE_HEADER_RE.finditer(text)
+            for m in structure._UNPREFIXED_HEADER_RE.finditer(text)
             if not (discharge_filter and structure._is_discharge_header(text, m.start()))
         )
     return len(starts)
@@ -109,7 +109,7 @@ def tally(results_dir):
     }
     ac_lost = dict.fromkeys(AC_VARIANTS, 0)
     ac_gained = dict.fromkeys(AC_ANCHORS, 0)
-    section_lost = dict.fromkeys([*SECTION_PATTERNS, "standalone headers"], 0)
+    section_lost = dict.fromkeys([*SECTION_PATTERNS, "unprefixed headers"], 0)
 
     for text in iter_bhcs(results_dir):
         counts["total"] += 1
@@ -129,8 +129,8 @@ def tally(results_dir):
             for name in SECTION_PATTERNS:
                 if count_sections(text, skip=name) < THRESHOLD:
                     section_lost[name] += 1
-            if count_sections(text, skip_standalone=True) < THRESHOLD:
-                section_lost["standalone headers"] += 1
+            if count_sections(text, skip_unprefixed=True) < THRESHOLD:
+                section_lost["unprefixed headers"] += 1
         elif count_sections(text, discharge_filter=False) >= THRESHOLD:
             counts["discharge_filter_saves"] += 1
 

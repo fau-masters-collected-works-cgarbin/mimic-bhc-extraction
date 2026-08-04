@@ -126,13 +126,15 @@ _NUM_SLASH_RE = re.compile(r"^[ \t]*\d+/[ \t]*[A-Za-z]", re.MULTILINE)
 # Numbered with closing paren only: 1) Problem
 _NUM_CLOSEPAREN_RE = re.compile(r"^[ \t]*\d+\)[ \t]*[A-Za-z]", re.MULTILINE)
 
-# Standalone clinical-domain headers at the start of a line:
-# "Neuro:", "Cardiovascular:", "GI:", etc.
-# The header is a short capitalized phrase (under 40 chars) followed by
-# a colon. It may have content after the colon on the same line
-# (e.g., "Neuro: Head CT negative") or stand alone.
+# Clinical-domain headers with no prefix marker, opening a line and
+# carrying the domain's text after the colon: "Neuro: Head CT negative",
+# "Cardiovascular: ...". A capitalized phrase of at most 41 characters,
+# a colon, then a space or tab. That trailing space is required, so a
+# bare "Neuro:" ending the line does not match and is not counted.
+# _detect_numbering_convention() reports these as the "standalone"
+# convention, where standalone means unprefixed, not alone on the line.
 # The only pattern needing the discharge-header exclusion below.
-_STANDALONE_HEADER_RE = re.compile(
+_UNPREFIXED_HEADER_RE = re.compile(
     r"^[ \t]*[A-Z][A-Za-z /\-]{1,40}:[ \t]",
     re.MULTILINE,
 )
@@ -170,7 +172,7 @@ _DISCHARGE_HEADER_RE = re.compile(
 
 
 def _is_discharge_header(bhc_text: str, match_start: int) -> bool:
-    """Check if a standalone header match is actually a discharge-summary section header."""
+    """Check if an unprefixed header match is actually a discharge-summary section header."""
     # Find the full line containing this match. We locate the true line start
     # rather than trusting match_start to be at column 0.
     line_start = bhc_text.rfind("\n", 0, match_start) + 1
@@ -198,8 +200,8 @@ def _count_labeled_sections(bhc_text: str) -> int:
         for m in pattern.finditer(bhc_text):
             matched_lines.add(m.start())
 
-    # Standalone headers: exclude discharge-summary section headers
-    for m in _STANDALONE_HEADER_RE.finditer(bhc_text):
+    # Unprefixed headers: exclude discharge-summary section headers
+    for m in _UNPREFIXED_HEADER_RE.finditer(bhc_text):
         if not _is_discharge_header(bhc_text, m.start()):
             matched_lines.add(m.start())
 
@@ -224,26 +226,26 @@ def _detect_numbering_convention(bhc_text: str) -> str:
         "*": len(_ASTERISK_ENTRY_RE.findall(bhc_text)),
     }
 
-    # Check for standalone headers (no prefix marker), excluding
-    # discharge-summary headers that may leak into BHC text
-    standalone_count = sum(
+    # Unprefixed headers, excluding discharge-summary headers that may leak
+    # into BHC text. These report as the "standalone" convention.
+    unprefixed_count = sum(
         1
-        for m in _STANDALONE_HEADER_RE.finditer(bhc_text)
+        for m in _UNPREFIXED_HEADER_RE.finditer(bhc_text)
         if not _is_discharge_header(bhc_text, m.start())
     )
-    # Only count standalone if no other markers are dominant
+    # Only report "standalone" if no prefixed marker is dominant
     prefix_total = sum(counts.values())
-    has_standalone_headers = (
-        standalone_count >= _MIN_DOMAIN_SECTIONS and prefix_total < _MIN_DOMAIN_SECTIONS
+    unprefixed_dominates = (
+        unprefixed_count >= _MIN_DOMAIN_SECTIONS and prefix_total < _MIN_DOMAIN_SECTIONS
     )
-    if has_standalone_headers:
+    if unprefixed_dominates:
         return "standalone"
 
     # Return the convention with the most matches, if any reach threshold
     best = max(counts, key=lambda k: counts[k])
     if counts[best] >= _MIN_DOMAIN_SECTIONS:
         return best
-    if standalone_count >= _MIN_DOMAIN_SECTIONS:
+    if unprefixed_count >= _MIN_DOMAIN_SECTIONS:
         return "standalone"
     return "mixed"
 
