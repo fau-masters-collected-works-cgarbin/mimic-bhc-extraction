@@ -24,8 +24,8 @@ A labeled section is a line that opens a new topic and carries a visible marker.
 
 - A hash prefix
 - A number, in any style
-- A bullet
-- A short capitalized label followed by a colon
+- An asterisk
+- A short capitalized label followed by a colon, with text after it on the same line
 
 These do not count as labeled sections:
 
@@ -42,13 +42,13 @@ Treated with ceftriaxone, afebrile by day three.
 Hemoglobin stable, no transfusion required.
 ```
 
-Narrative, because the only marker is a discharge-summary header that leaked in:
+Narrative, because the only markers are discharge-summary headers that leaked in:
 
 ```text
 She was admitted with pneumonia and improved on ceftriaxone over four days.
 
-Discharge Medications:
-Amoxicillin 500 mg three times daily.
+Discharge Medications: Amoxicillin 500 mg three times daily.
+Discharge Condition: Stable.
 ```
 
 ## Rule 2: acute/chronic partition
@@ -63,7 +63,7 @@ Present when the BHC carries **at least one** header labeling a group of problem
 
 The name of this rule is shorthand for that list. `ACTIVE ISSUES` counts, and so does `INACTIVE ISSUES`. Do not read the rule as acute against chronic only, which is the mistake the name invites.
 
-The header must stand on its own line. The same words inside a sentence do not count.
+The header must stand on its own line, with nothing after it but an underline or bold marker. That is the reverse of rule 1's colon marker, which needs text on the same line. The same words inside a sentence count for neither rule.
 
 One labeled group is enough. A BHC that runs prose and then labels a chronic section is still splitting acute from chronic. The reader infers the unlabeled half.
 

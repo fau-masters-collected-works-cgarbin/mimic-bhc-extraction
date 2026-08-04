@@ -153,7 +153,7 @@ Each record contains:
 
 Extraction fails (`extraction_success: false`) when no recognizable BHC header is found in the note (`failure_reason: "no_header"`) or when the region between the header and the end boundary is empty (`failure_reason: "empty_section"`). See [Two-phase extraction](docs/extraction-design.md#two-phase-extraction) for how the extractor determines success or failure.
 
-`iserror` is a MIMIC-III-specific quality flag, not a failure condition. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired.
+`iserror` is a MIMIC-III-specific quality flag, not a failure condition. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired. No discharge summary row sets ISERROR in v1.4, so the flag does not appear on that release, but the extractor reads the column rather than assuming that holds.
 
 ## Supporting Tools
 

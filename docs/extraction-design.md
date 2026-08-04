@@ -22,8 +22,6 @@ The Brief Hospital Course (BHC) is typically the longest and most clinically den
 
 Derived properties (character count, word count) are computed from the extracted text on access as `@property` methods, not stored as separate fields.
 
-`compute_bhc_stats()` (in `mimic_bhc/stats.py`) takes a sequence of `BHCResult` objects directly, avoiding intermediate DataFrame conversions or field-name translation.
-
 The design rule: if you need a new field on the extraction output, add it to `BHCResult` and populate it in the appropriate layer. Do not create parallel representations.
 
 ## Two-phase extraction
@@ -61,15 +59,13 @@ The boundary list excludes BHC-internal sub-headers like "Cardiovascular:", "Ren
 
 It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, these are discharge planning rather than hospital course narrative, but clinicians type this content into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The released MIMIC-IV-Ext-BHC data retains this content in its BHC field, though Aali et al. (2025) do not document it as a design choice.
 
-This is the key design tension: the boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
+The boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
 
 ## Addendum deduplication
 
 MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`hadm_id`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`. The rest are addendum duplicates.
 
-The batch module (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text, on the rationale that the longest version is the most complete. Published MIMIC-III work takes the opposite approach: Alsentzer and Kim (2018) exclude addendums and keep only the original discharge report. MIMIC-IV-Note does not have this issue (one row per admission).
-
-`extract_bhc()` operates on a single note and does not deduplicate. Deduplication is a property of the batch module, not the per-note extraction.
+The batch module (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text, on the rationale that the longest version is the most complete. MIMIC-IV-Note does not have this issue (one row per admission).
 
 ## Quality flags
 
@@ -89,11 +85,9 @@ After extraction, the batch module classifies each BHC's organizational structur
 
 **Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events are connected by temporal sequence rather than grouped by clinical domain. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD numbering are typical examples.
 
-**Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as # prefixed headers, numbered entries, or standalone headers on their own lines. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
+**Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as # prefixed headers, numbered entries, or unprefixed headers that open a line and are followed by the domain's text. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
 
 **Standardized template.** The BHC follows a fixed template with standardized section names applied to every patient regardless of clinical presentation (e.g., NICU assessment domains: Respiratory, Cardiovascular, FEN, GI, Hematology, ID, Neurology, Sensory, Psychosocial). Present only in MIMIC-III (no neonatal admissions in MIMIC-IV).
-
-Extraction is insensitive to format. Internal sub-headers (whether organ-system names, disease-specific labels, or template domains) sit inside the captured text and do not interfere with boundary detection. The classifier is not uniform, though: it tests for the NICU template first and falls through to the general labeled-section count only when that test fails.
 
 See [Empirical Findings](empirical-findings.md#structure-classification-distribution) for how the three categories are distributed across the two datasets.
 
@@ -103,7 +97,7 @@ See [Empirical Findings](empirical-findings.md#structure-classification-distribu
 
 The 40 cases cover two rules and are scored separately: 30 cases for the category rule, which accepts up to 3 disagreements, and 10 for the acute/chronic rule, which accepts 1.
 
-The coding rules give the coder two labels, narrative and domain-organized, and tell them to code a neonatal template as domain-organized. The hand-coding therefore validates the boundary between narrative and domain-organized. It does not test the standardized template category.
+The coding rules give the coder two labels, narrative and domain-organized, and tell them to code a neonatal template as domain-organized. The hand-coding therefore validates the boundary between narrative and domain-organized, not the standardized template category.
 
 `scripts/sample_structure_validation.py` draws the sample and writes the coding sheet and the answer key.
 
@@ -114,7 +108,7 @@ The classifier emits two modifiers alongside the category:
 - **Acute/chronic partition**: a standalone header labeling a group of problems acute, active, chronic, stable, or inactive.
 - **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
 
-It also records a numbering convention for domain-organized BHCs: `#`, `1.`, or a standalone header. That is a field on the result rather than a modifier, and nothing reads it.
+It also records a numbering convention for domain-organized BHCs: `#`, `##`, `N.`, `N)`, `(N)`, `N/`, `*`, `standalone`, or `mixed`. `standalone` means the header carries no prefix marker, not that it sits alone on its line. That is a field on the result rather than a modifier, and nothing reads it.
 
 The Transitional Issues modifier tracks the handoff content that the end-boundary allowlist passes through (see [End-boundary patterns](#end-boundary-patterns)).
 
@@ -124,7 +118,7 @@ The domain-organized format traces its lineage to the problem-oriented medical r
 
 Hospital medicine literature treats problem-based organization of the hospital course as a template choice. Smith et al. (2017) report a discharge summary redesign that eliminated the stand-alone diagnosis list and incorporated it "as part of the problem-based hospital course," and they score "problem-based hospital course" as one of 24 discharge summary quality elements. Dean et al. (2016), standardizing discharge summaries hospitalwide at a different institution, keep diagnoses and hospital course as separate template elements.
 
-We found no published work that names the narrative format as a category or contrasts it with the problem-based one. The narrative category here comes from the corpus, not from the literature.
+We found no published work that names the narrative format as a category or contrasts it with the problem-based one. The narrative category here comes from the corpus.
 
 Adams et al. (2021) observe that most BHCs are "written in a problem-oriented fashion (Weed, 1968)," but treat the observation as a corpus characteristic rather than a variable: they do not categorize the variation, label it, or condition on it. Other BHC summarization work (Xu et al., 2024) treats the BHC as an atomic text block.
 
@@ -166,7 +160,7 @@ We evaluated each candidate on the full corpus for extraction yield and false-po
 
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
-This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. The `discover` CLI command is the primary tool for step 3. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
+This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
 
 ## Why regex, not existing tools
 
@@ -223,7 +217,7 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
     --input results/bhc_mimic3_with_text.jsonl
 ```
 
-4. Update the tables in `docs/empirical-findings.md` with the new numbers. The header distribution tables list variants with count >= 100 individually and group the rest into "Other." The `stats` command's structure distribution supplies both the category prevalence table and the median length per format, so take both from the same run.
+4. Update the tables in `docs/empirical-findings.md` with the new numbers. The header distribution tables list variants with count >= 100 individually and group the rest into "Other." The `stats` command's structure distribution supplies both the category prevalence table and the median length per format, so take both from the same run. Do not mix in figures from `scripts/bhc_format_stats.py`: it reports over the structure-eligible pool (extractions longer than 500 characters) and folds standardized templates into domain-organized, so its shares and medians will not match the `stats` output.
 
 5. Check two claims in [Structure classification](#structure-classification) against the new distribution: that domain-organized is the majority format in both datasets, and that standardized templates appear only in MIMIC-III. Neither is a number, so no test covers them.
 
@@ -231,7 +225,6 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
 
 - Aali, A., Van Veen, D., Arefeen, Y. I., et al. (2025). A dataset and benchmark for hospital course summarization with adapted large language models. JAMIA, 32(3), 470-479. doi:10.1093/jamia/ocae312.
 - Adams, G., Alsentzer, E., Ketenci, M., Zucker, J., & Elhadad, N. (2021). What's in a Summary? Laying the Groundwork for Advances in Hospital-Course Summarization. NAACL 2021, 4794-4811. doi:10.18653/v1/2021.naacl-main.382.
-- Alsentzer, E., & Kim, A. (2018). Extractive Summarization of EHR Discharge Notes. arXiv:1810.12085.
 - Dean, S. M., Gilmore-Bykovskyi, A., Buchanan, J., Ehlenfeldt, B., & Kind, A. J. H. (2016). Design and hospitalwide implementation of a standardized discharge summary in an electronic health record. The Joint Commission Journal on Quality and Patient Safety, 42(12), 555-AP11. doi:10.1016/S1553-7250(16)30107-6.
 - Kruse, M., Hu, S., Derby, N., et al. (2025). Large Language Models with Temporal Reasoning for Longitudinal Clinical Summarization and Prediction. Findings of EMNLP 2025, 20715-20735. doi:10.18653/v1/2025.findings-emnlp.1128. Preprint: arXiv:2501.18724.
 - Landes, P., Patel, K., Huang, S. S., Webb, A., Di Eugenio, B., & Caragea, C. (2022). A New Public Corpus for Clinical Section Identification: MedSecId. COLING 2022, 3709-3721.
