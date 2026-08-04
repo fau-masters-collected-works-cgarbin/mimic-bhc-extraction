@@ -19,6 +19,7 @@ import argparse
 import re
 import sys
 import time
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -29,6 +30,11 @@ from mimic_bhc.io import load_results
 # Thresholds for text overlap reporting
 _LOW_OVERLAP_THRESHOLD = 0.5
 _HIGH_OVERLAP_THRESHOLD = 0.99
+
+# Labels for why Kruse returned nothing on a note we extracted.
+_CAUSE_NO_START = "start marker missing"
+_CAUSE_NO_END = "start matched, end marker missing"
+_CAUSE_ORDER = "both markers present, end precedes start"
 
 
 # ---------------------------------------------------------------------------
@@ -48,17 +54,45 @@ _HIGH_OVERLAP_THRESHOLD = 0.99
 # We reproduce this behavior intentionally to keep the comparison faithful
 # to the original implementation. In practice the end markers almost always
 # follow BHC in MIMIC-III discharge summaries, so this rarely triggers.
-def kruse_extract_hospital_course(text: str) -> str:
+_KRUSE_START_RE = re.compile(r"(Brief Hospital Course:|HOSPITAL COURSE:)")
+_KRUSE_END_RE = re.compile(
+    r"(Discharge Medications:|DISCHARGE STATUS:|Medications on Admission:"
+    r"|CONDITION ON DISCHARGE:|DISCHARGE DIAGNOSES:|DISCHARGE CONDITION:)"
+)
+
+
+@dataclass(frozen=True)
+class KruseResult:
+    """Kruse's extraction, plus which of its two markers matched.
+
+    The marker flags are what let the report say why an extraction came back
+    empty, which a bare text result cannot distinguish.
+    """
+
+    text: str
+    start_found: bool
+    end_found: bool
+
+    @property
+    def cause(self) -> str:
+        """Label why the extraction is empty. Meaningless when text is non-empty."""
+        if not self.start_found:
+            return _CAUSE_NO_START
+        return _CAUSE_ORDER if self.end_found else _CAUSE_NO_END
+
+
+def kruse_extract_hospital_course(text: str) -> KruseResult:
     """Extract Hospital Course using Kruse et al.'s regex logic."""
-    hospital_course_start = re.search(r"(Brief Hospital Course:|HOSPITAL COURSE:)", text)
-    hospital_course_end = re.search(
-        r"(Discharge Medications:|DISCHARGE STATUS:|Medications on Admission:"
-        r"|CONDITION ON DISCHARGE:|DISCHARGE DIAGNOSES:|DISCHARGE CONDITION:)",
-        text,
-    )
+    hospital_course_start = _KRUSE_START_RE.search(text)
+    hospital_course_end = _KRUSE_END_RE.search(text)
+    bhc = ""
     if hospital_course_start and hospital_course_end:
-        return text[hospital_course_start.end() : hospital_course_end.start()].strip()
-    return ""
+        bhc = text[hospital_course_start.end() : hospital_course_end.start()].strip()
+    return KruseResult(
+        text=bhc,
+        start_found=hospital_course_start is not None,
+        end_found=hospital_course_end is not None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +119,7 @@ def run_comparison(input_path: str) -> pd.DataFrame:
     rows = []
     for r in results:
         note_text = r.note_text or ""
-        kruse_text = kruse_extract_hospital_course(note_text)
+        kruse = kruse_extract_hospital_course(note_text)
 
         rows.append(
             {
@@ -94,10 +128,12 @@ def run_comparison(input_path: str) -> pd.DataFrame:
                 "ours_bhc_text": r.bhc_text or "",
                 "ours_bhc_length": r.bhc_char_count,
                 "ours_start_header": r.start_header,
+                "ours_end_header": r.end_header,
                 "ours_failure_reason": r.failure_reason,
-                "kruse_success": len(kruse_text) > 0,
-                "kruse_bhc_length": len(kruse_text),
-                "kruse_bhc_text": kruse_text,
+                "kruse_success": len(kruse.text) > 0,
+                "kruse_bhc_length": len(kruse.text),
+                "kruse_bhc_text": kruse.text,
+                "kruse_cause": kruse.cause,
             }
         )
     print(f"  Kruse extraction done in {time.time() - t0:.1f}s")
@@ -156,10 +192,24 @@ def print_report(df: pd.DataFrame) -> None:
 
     ours_only = df[df["agreement"] == "ours_only"]
     if len(ours_only) > 0:
-        print(f"\n  Ours-only successes ({len(ours_only):,} cases):")
-        print("  Headers matched (Kruse would miss these):")
-        for header, count in ours_only["ours_start_header"].value_counts().head(10).items():
-            print(f"    {header}: {count:,}")
+        n = len(ours_only)
+        print(f"\n  Ours-only successes ({n:,} cases):")
+        print("  Why Kruse returned nothing:")
+        for cause, count in ours_only["kruse_cause"].value_counts().items():
+            print(f"    {cause:45s}: {count:,} ({100 * count / n:.1f}%)")
+
+        no_start = ours_only[ours_only["kruse_cause"] == _CAUSE_NO_START]
+        if len(no_start) > 0:
+            print(f"\n  Start headers their two literals cannot reach ({len(no_start):,} cases):")
+            for header, count in no_start["ours_start_header"].value_counts().head(10).items():
+                print(f"    {header}: {count:,}")
+
+        no_end = ours_only[ours_only["kruse_cause"] == _CAUSE_NO_END]
+        if len(no_end) > 0:
+            print(f"\n  Our end boundary where their end literals missed ({len(no_end):,} cases):")
+            boundaries = no_end["ours_end_header"].fillna("(unbounded, we run to end of note)")
+            for boundary, count in boundaries.value_counts().items():
+                print(f"    {boundary}: {count:,}")
 
     kruse_only_df = df[df["agreement"] == "kruse_only"]
     if len(kruse_only_df) > 0:
