@@ -1,10 +1,7 @@
 """Cross-check concrete claims in the docs against code.
 
-Covers docs/extraction-design.md and docs/bhc-format-coding-rules.md.
-
-These tests verify that documented pattern counts and threshold values stay
-in sync with the code.  If a test fails, update the doc to match the code
-(or vice versa).
+Covers docs/extraction-design.md and docs/bhc-format-coding-rules.md. On a
+failure, update the doc to match the code or the code to match the doc.
 
 For data-derived metrics (extraction success rates, header distributions,
 length statistics in docs/empirical-findings.md), see the "Updating
@@ -47,7 +44,7 @@ class TestDesignDocMatchesCode:
         )
 
     def test_end_boundary_count(self):
-        """Doc says '15 patterns identify top-level discharge summary sections'."""
+        """Doc says 'N patterns identify top-level discharge summary sections'."""
         text = _design_doc_text()
         match = re.search(r"(\d+) patterns identify top-level discharge summary sections", text)
         assert match is not None, "Could not find end-boundary count claim in doc"
@@ -57,7 +54,7 @@ class TestDesignDocMatchesCode:
         )
 
     def test_min_bhc_length_threshold(self):
-        """Doc says 'shorter than 100 characters'."""
+        """Doc says 'shorter than N characters'."""
         text = _design_doc_text()
         match = re.search(r"shorter than (\d+) characters", text)
         assert match is not None, "Could not find min BHC length claim in doc"

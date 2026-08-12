@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from mimic_bhc.structure import StructureResult
 
-# Valid values for quality_flags entries. Defined in batch._build_quality_flags().
+# Valid values for quality_flags entries.
 #   "iserror"          - MIMIC-III NOTEEVENTS.ISERROR was 1 (note entered in error)
 #   "below_min_length" - extracted BHC text is shorter than MIN_BHC_LENGTH (100 chars)
-#   "unbounded"        - no end header found; BHC extends to end of note
+#   "unbounded"        - no end header found, so the BHC runs to the end of the note
 QualityFlag = Literal["iserror", "below_min_length", "unbounded"]
 
 
@@ -38,7 +38,7 @@ class BHCResult:
     bhc_start: int | None = None
     bhc_end: int | None = None
 
-    # --- Enrichment layer (filled by callers) ---
+    # --- Enrichment layer ---
     hadm_id: int | None = None
     row_id: str | None = None
     subject_id: int | None = None

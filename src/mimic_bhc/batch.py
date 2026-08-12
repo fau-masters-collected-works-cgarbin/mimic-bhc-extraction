@@ -1,7 +1,8 @@
 """DuckDB-based batch extraction and structure classification.
 
-This module handles file loading and orchestrates extraction across note collections.
-DuckDB is used internally for efficient data loading but is not exposed in the public API.
+Loads a MIMIC notes file, runs extraction and structure classification over
+it, and returns one enriched BHCResult per admission. DuckDB does the file
+reading and stays behind these functions.
 """
 
 from __future__ import annotations
@@ -87,10 +88,7 @@ class _ColumnMap:
 
 
 def _column_map(*, is_mimic3: bool, columns: list[str]) -> _ColumnMap:
-    """Return the column mapping for the detected MIMIC version.
-
-    Expects lowercase column names (as produced by ``load_dataframe``).
-    """
+    """Return the column mapping for the detected MIMIC version."""
     assert all(c == c.lower() for c in columns), (  # noqa: S101
         "columns must be lowercase; call load_dataframe() first"
     )
@@ -195,9 +193,7 @@ def extract_from_file(
 
     cols = _column_map(is_mimic3=is_mimic3, columns=list(notes.columns))
 
-    # MIMIC-III: filter to discharge summaries. This loads all note categories
-    # into memory before filtering, but the full DataFrame is short-lived and
-    # replaced by the filtered copy (~60k rows vs ~2M) immediately after.
+    # MIMIC-III: filter to discharge summaries, ~60k rows of the ~2M loaded.
     if is_mimic3:
         notes = notes[notes["category"] == "Discharge summary"].copy()
 

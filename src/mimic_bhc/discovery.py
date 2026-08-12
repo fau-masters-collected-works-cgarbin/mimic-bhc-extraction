@@ -1,15 +1,13 @@
 """Section header discovery and classification tools.
 
 Diagnostic utilities for exploring what section headers appear in discharge
-notes and how they relate to the BHC extraction patterns.  These are not
-part of the extraction logic itself. They exist to support pattern
-development and validation.
+notes and how they relate to the BHC extraction patterns. They support
+pattern development and validation, not extraction itself.
 
 - ``discover_headers_from_file``: loads a MIMIC CSV/parquet file, samples
-  notes, and returns a frequency table.  This is the file-level function
-  that mirrors ``extract_from_file`` in the batch module.
-- ``discover_headers_in_texts``: scans an iterable of note strings.
-  Use this when you already have note texts in memory.
+  notes, and returns a frequency table.
+- ``discover_headers_in_texts``: scans an iterable of note strings. Use this
+  when you already have note texts in memory.
 """
 
 from __future__ import annotations
@@ -30,9 +28,8 @@ if TYPE_CHECKING:
 def classify_header_role(header: str) -> str:
     """Classify a discovered header as 'BHC header', 'End boundary', or 'Other'.
 
-    Checks the header text against ``mimic_bhc.patterns``' compiled patterns
-    for BHC start headers and end boundaries.  Headers that match neither
-    are labeled 'Other'.
+    A trailing colon is optional: the header is tried both as given and
+    with a colon appended.
     """
     line = header.strip()
     if _BHC_HEADER_RE.match(line) or _BHC_HEADER_RE.match(line + ":"):
@@ -47,23 +44,13 @@ def discover_headers_in_texts(
 ) -> list[tuple[str, int, str]]:
     """Scan note texts for lines that look like section headers.
 
-    Returns a list of ``(header, count, role)`` tuples sorted by frequency
-    (descending).  Each ``role`` is one of "BHC header", "End boundary",
-    or "Other", as determined by :func:`classify_header_role`.
+    Args:
+        texts: Discharge note strings to scan. Empty and None entries are
+            skipped.
 
-    This function operates on text strings only and does not read files
-    or connect to a database.  Use ``discover_headers_from_file`` to load
-    notes from a MIMIC file directly.
-
-    Parameters
-    ----------
-    texts:
-        Iterable of discharge note strings to scan.
-
-    Returns
-    -------
-    list[tuple[str, int, str]]
-        ``(header_text, frequency, role)`` sorted by frequency descending.
+    Returns:
+        ``(header_text, frequency, role)`` sorted by frequency descending,
+        where role comes from :func:`classify_header_role`.
     """
     header_counts: Counter[str] = Counter()
     for text in texts:
@@ -80,7 +67,7 @@ def discover_headers_in_texts(
 
 
 # ---------------------------------------------------------------------------
-# File-level discovery (mirrors batch.extract_from_file)
+# File-level discovery
 # ---------------------------------------------------------------------------
 
 
@@ -92,23 +79,13 @@ def discover_headers_from_file(
 ) -> list[tuple[str, int, str]]:
     """Load a MIMIC notes file, sample discharge notes, and discover headers.
 
-    This is the file-level entry point for header discovery.  It handles
-    format detection, column mapping, MIMIC-III discharge-summary filtering,
-    and sampling. The user only provides the file path.
+    Args:
+        input_path: Path to MIMIC notes file (``NOTEEVENTS.csv.gz`` for
+            MIMIC-III, ``discharge.csv.gz`` for MIMIC-IV-Note).
+        format_hint: ``"mimic3"``, ``"mimic4"``, or ``"auto"`` (default).
+        sample_size: Number of notes to sample. Pass 0 to scan all notes.
 
-    Parameters
-    ----------
-    input_path:
-        Path to MIMIC notes file (``NOTEEVENTS.csv.gz`` for MIMIC-III,
-        ``discharge.csv.gz`` for MIMIC-IV-Note).
-    format_hint:
-        ``"mimic3"``, ``"mimic4"``, or ``"auto"`` (default).
-    sample_size:
-        Number of notes to sample.  Pass 0 to scan all notes.
-
-    Returns
-    -------
-    list[tuple[str, int, str]]
+    Returns:
         ``(header_text, frequency, role)`` sorted by frequency descending.
     """
     is_mimic3 = _is_mimic3(input_path, format_hint)
@@ -116,15 +93,13 @@ def discover_headers_from_file(
     with duckdb.connect() as conn:
         notes = load_dataframe(conn, input_path)
 
-    # MIMIC-III: filter to discharge summaries, exclude ISERROR.
-    # Unlike batch extraction (which keeps ISERROR rows and flags them),
-    # discovery excludes them to avoid error notes skewing header frequency counts.
+    # MIMIC-III: filter to discharge summaries and drop ISERROR rows, whose
+    # headers would skew the frequency counts.
     if is_mimic3:
         notes = notes[notes["category"] == "Discharge summary"]
         if "iserror" in notes.columns:
             notes = notes[(notes["iserror"].isna()) | (notes["iserror"] != 1)]
 
-    # Sample
     if sample_size > 0 and len(notes) > sample_size:
         notes = notes.sample(n=sample_size, random_state=42)
 

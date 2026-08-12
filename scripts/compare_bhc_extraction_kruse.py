@@ -50,10 +50,9 @@ _CAUSE_ORDER = "both markers present, end precedes start"
 #
 # Known limitation (present in the original code): the end-header search
 # starts from position 0, not from after the start match. If an end header
-# appears before the BHC start header, the extraction would be incorrect.
-# We reproduce this behavior intentionally to keep the comparison faithful
-# to the original implementation. In practice the end markers almost always
-# follow BHC in MIMIC-III discharge summaries, so this rarely triggers.
+# appears before the BHC start header, the extraction is incorrect. Kept as
+# it is, so the comparison measures their extractor rather than a repaired
+# version of it. The report counts how often it fires, as _CAUSE_ORDER.
 _KRUSE_START_RE = re.compile(r"(Brief Hospital Course:|HOSPITAL COURSE:)")
 _KRUSE_END_RE = re.compile(
     r"(Discharge Medications:|DISCHARGE STATUS:|Medications on Admission:"
@@ -65,8 +64,8 @@ _KRUSE_END_RE = re.compile(
 class KruseResult:
     """Kruse's extraction, plus which of its two markers matched.
 
-    The marker flags are what let the report say why an extraction came back
-    empty, which a bare text result cannot distinguish.
+    The marker flags are what separate the three ways an extraction can come
+    back empty. The extracted text alone cannot tell them apart.
     """
 
     text: str

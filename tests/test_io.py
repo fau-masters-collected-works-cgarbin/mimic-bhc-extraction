@@ -21,7 +21,6 @@ def _make_result_dict(hadm_id: int = 1, *, success: bool = True) -> dict:
 
 class TestLoadResults:
     def test_load_jsonl(self, tmp_path: Path):
-        """Should load line-delimited JSONL."""
         path = tmp_path / "results.jsonl"
         records = [_make_result_dict(i) for i in range(3)]
         path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
@@ -33,7 +32,6 @@ class TestLoadResults:
         assert results[2].hadm_id == 2
 
     def test_load_json_array(self, tmp_path: Path):
-        """Should load pretty-printed JSON array."""
         path = tmp_path / "results.json"
         records = [_make_result_dict(i) for i in range(2)]
         path.write_text(json.dumps(records, indent=2))
@@ -43,7 +41,6 @@ class TestLoadResults:
         assert results[0].extraction_success is True
 
     def test_load_empty_file(self, tmp_path: Path):
-        """Should return empty list for empty file."""
         path = tmp_path / "empty.jsonl"
         path.write_text("")
 
@@ -51,7 +48,6 @@ class TestLoadResults:
         assert results == []
 
     def test_load_jsonl_with_blank_lines(self, tmp_path: Path):
-        """Should skip blank lines in JSONL."""
         path = tmp_path / "results.jsonl"
         record = _make_result_dict()
         path.write_text(json.dumps(record) + "\n\n" + json.dumps(record) + "\n")
@@ -60,7 +56,6 @@ class TestLoadResults:
         assert len(results) == 2
 
     def test_load_preserves_fields(self, tmp_path: Path):
-        """Should preserve key fields through round-trip."""
         path = tmp_path / "results.jsonl"
         record = _make_result_dict(hadm_id=42, success=False)
         path.write_text(json.dumps(record) + "\n")
@@ -84,7 +79,6 @@ def _make_bhc_result(hadm_id: int = 1) -> BHCResult:
 
 class TestLoadJsonl:
     def test_load_dicts(self, tmp_path: Path):
-        """Should load dicts from JSONL."""
         path = tmp_path / "data.jsonl"
         records = [{"id": 1, "flag": "ok"}, {"id": 2, "flag": "short"}]
         path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
@@ -95,7 +89,6 @@ class TestLoadJsonl:
         assert loaded[1]["flag"] == "short"
 
     def test_skips_blank_lines(self, tmp_path: Path):
-        """Should skip blank lines."""
         path = tmp_path / "data.jsonl"
         path.write_text('{"x": 1}\n\n{"x": 2}\n')
 
@@ -105,7 +98,6 @@ class TestLoadJsonl:
 
 class TestWriteResults:
     def test_write_jsonl(self, tmp_path: Path):
-        """Should write JSONL by default."""
         path = tmp_path / "out.jsonl"
         results = [_make_bhc_result(i) for i in range(3)]
         write_results(results, path)
@@ -117,7 +109,6 @@ class TestWriteResults:
         assert parsed["extraction_success"] is True
 
     def test_write_pretty(self, tmp_path: Path):
-        """Should write pretty-printed JSON array when pretty=True."""
         path = tmp_path / "out.json"
         results = [_make_bhc_result(1), _make_bhc_result(2)]
         write_results(results, path, pretty=True)
@@ -138,7 +129,6 @@ class TestWriteResults:
         assert loaded[0].bhc_text == "Patient was admitted."
 
     def test_creates_parent_dirs(self, tmp_path: Path):
-        """Should create parent directories if they don't exist."""
         path = tmp_path / "nested" / "dir" / "out.jsonl"
         write_results([_make_bhc_result()], path)
         assert path.exists()
@@ -146,7 +136,6 @@ class TestWriteResults:
 
 class TestWriteJsonl:
     def test_write_dicts(self, tmp_path: Path):
-        """Should write dicts as JSONL."""
         path = tmp_path / "audit.jsonl"
         records = [{"hadm_id": 1, "flag": "short"}, {"hadm_id": 2, "flag": "ok"}]
         write_jsonl(records, path)
@@ -156,7 +145,6 @@ class TestWriteJsonl:
         assert json.loads(lines[0])["hadm_id"] == 1
 
     def test_creates_parent_dirs(self, tmp_path: Path):
-        """Should create parent directories if they don't exist."""
         path = tmp_path / "sub" / "audit.jsonl"
         write_jsonl([{"x": 1}], path)
         assert path.exists()

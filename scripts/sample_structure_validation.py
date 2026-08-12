@@ -8,7 +8,7 @@ the category rule and acute/chronic for the acuity rule, which fires on 2% of
 MIMIC-III.
 
 The coder works from the text alone. Cases are shuffled and numbered, and each
-group splits evenly across the two datasets.
+group splits as evenly as its size allows across the two datasets.
 
 Reads the extraction JSONL for both datasets from --results-dir. Writes the
 coding sheet and the key to --out-dir. Both hold MIMIC data and belong outside
@@ -73,13 +73,11 @@ GROUP_NARRATIVE = "narrative"
 GROUP_DOMAIN = "domain_organized"
 GROUP_ACUTE_CHRONIC = "acute_chronic"
 
-# The category rule is scored over its two groups pooled, at 30 cases,
-# because 30 with no
-# disagreement puts a lower bound near 90% by the rule of three. Acute/chronic
-# is a single pattern over header lines, so a correct rule should disagree on
-# none of its 10 and two would mean the pattern is wrong rather than the sample
-# unlucky. Each group splits evenly between the datasets, leaving the text as
-# the only signal.
+# The category rule is scored over its two groups pooled, at 30 cases, because
+# 30 with no disagreement puts a lower bound near 90% by the rule of three.
+# Acute/chronic is a single pattern over header lines, so a correct rule should
+# disagree on none of its 10, and two would mean the pattern is wrong rather
+# than the sample unlucky.
 QUOTAS = {
     (GROUP_NARRATIVE, "mimic-iii"): 8,
     (GROUP_NARRATIVE, "mimic-iv"): 7,

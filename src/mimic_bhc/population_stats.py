@@ -13,8 +13,6 @@ No additional quality filtering is applied.
   always available.
 - ``compute_population_stats`` and its loaders: require MIMIC source tables
   (ADMISSIONS, NOTEEVENTS, ICUSTAYS) joined to the extraction results.
-  ICUSTAYS is optional. Without it the per-ICU-system columns and the LOS and
-  BHC-length breakdowns are omitted.
 """
 
 from __future__ import annotations
@@ -43,7 +41,7 @@ IMAGING_ONLY = "imaging_only"
 
 # ICU dbsource buckets. "metavision" / "carevue" require every ICU stay to
 # come from that system. "mixed" covers admissions with stays in both.
-# "no_icu" covers admissions without any ICU stay record (rare in MIMIC-III).
+# "no_icu" covers admissions without any ICU stay record.
 DBSOURCE_CAREVUE = "carevue"
 DBSOURCE_METAVISION = "metavision"
 DBSOURCE_MIXED = "mixed"
@@ -107,9 +105,8 @@ BUCKET_COLUMN_TOTAL = "total"
 BUCKET_COLUMN_CAREVUE = "carevue"
 BUCKET_COLUMN_METAVISION = "metavision"
 
-# Mixed and No-ICU admissions roll into the Total column but get no column
-# of their own: their bucketed cells are too sparse to be useful. The
-# parent "By ICU system" sub-block still shows their unstratified counts.
+# Mixed and No-ICU admissions count toward the Total column but get no column
+# of their own: their bucketed cells are too sparse to be useful.
 _SYSTEM_COLUMNS: tuple[tuple[str, str | None], ...] = (
     (BUCKET_COLUMN_TOTAL, None),
     (BUCKET_COLUMN_CAREVUE, DBSOURCE_CAREVUE),
@@ -262,17 +259,14 @@ def load_admissions(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     dropped. ``los_days`` mirrors the cohort doc's convention:
     ``DATE_DIFF('day', ADMITTIME, DISCHTIME)``, the integer number of day
     boundaries crossed between admit and discharge, not fractional days.
-    Using fractional days would put admissions like ``Jan 1 23:00 -> Jan 4
-    01:00`` (50 hours, two boundaries crossed) on the wrong side of the
-    ``LOS >= 3`` cohort filter.
+    ``Jan 1 23:00 -> Jan 4 01:00`` crosses three boundaries and passes the
+    ``LOS >= 3`` cohort filter. Fractional days would give 2.08 and drop it.
     """
     df = _read_csv_lower(path)
     df = df[df["hadm_id"].isin(hadm_ids)].copy()
     if len(df) < len(hadm_ids):
         # By construction every hadm_id in NOTEEVENTS has a row in ADMISSIONS,
-        # so a shortfall here signals stale or mismatched MIMIC tables. LOS and
-        # mortality stay meaningful over the rows that did match, with a
-        # smaller denominator.
+        # so a shortfall here signals stale or mismatched MIMIC tables.
         missing = len(hadm_ids) - len(df)
         warnings.warn(
             f"{missing} hadm_id(s) from the extraction universe are missing "
@@ -324,8 +318,6 @@ def load_per_admission_note_volume(path: str, hadm_ids: set[int]) -> pd.DataFram
     The discharge summary is excluded because the BHC is part of it: it
     is the generation target, not source content. Admissions whose only
     note is the discharge summary do not appear in the returned frame.
-    Callers should reindex against their full universe and fill missing
-    rows with zeros.
     """
     query = """
         SELECT
@@ -351,8 +343,6 @@ def load_icu_dbsource(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     """Classify each hadm_id by ICU dbsource (carevue / metavision / mixed).
 
     Admissions without any ICU stay are not present in the returned frame.
-    Callers that want to surface them should reindex by their full hadm_id
-    universe and fill the missing rows with ``DBSOURCE_NO_ICU``.
     """
     # COALESCE handles all-NULL DBSOURCE groups, where BOOL_AND would
     # otherwise return NULL and propagate as pandas NA into the bucketing.
@@ -632,9 +622,11 @@ def compute_population_stats(
     ``format_by_note_category`` cross-tab additionally drops admissions whose
     BHC was classified as ``standardized_template``.
 
-    Self-check: the cross-tab row totals are validated against the structure
-    distribution counts (narrative + domain_organized) over the same universe.
-    A mismatch raises ``ValueError`` so the caller fails loudly.
+    Without ``icustays_path`` the per-ICU-system columns and the LOS and
+    BHC-length breakdowns are omitted.
+
+    Raises ``ValueError`` when the cross-tab row totals disagree with the
+    structure-distribution counts over the same universe.
     """
     successful = [r for r in results if r.extraction_success and r.hadm_id is not None]
     hadm_ids = {int(r.hadm_id) for r in successful if r.hadm_id is not None}
@@ -647,11 +639,10 @@ def compute_population_stats(
     df = _build_admission_frame(successful, admissions, note_categories, note_volume, icu_dbsource)
     cross_tab = _format_cross_tab(df)
 
-    # Self-check: cross-tab row totals must equal the structure-distribution
-    # counts over the same universe. A successful BHC extraction comes from a
-    # NOTEEVENTS row by definition, so any disagreement signals a data
-    # integrity bug (e.g. NOTEEVENTS path passed in is from a different
-    # MIMIC version, or the extraction JSONL is stale).
+    # A successful BHC extraction comes from a NOTEEVENTS row by definition,
+    # so a disagreement here means the inputs do not describe the same data:
+    # a NOTEEVENTS file from a different MIMIC version, or a stale extraction
+    # JSONL.
     expected_narrative = sum(
         1 for r in successful if r.bhc_structure and r.bhc_structure.category == "narrative"
     )

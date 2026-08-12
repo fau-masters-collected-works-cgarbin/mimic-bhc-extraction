@@ -44,7 +44,6 @@ def main():
     print("Building audit entries...")
     entries = build_audit_entries(results)
 
-    # Count flags.
     flagged = sum(1 for e in entries if e["review_flags"])
     print(f"  {flagged:,} entries flagged for review")
 

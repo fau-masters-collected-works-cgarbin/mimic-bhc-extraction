@@ -54,7 +54,6 @@ class _ResolvedMimicPaths(TypedDict):
 
 
 def _run_extract(args: argparse.Namespace) -> int:
-    """Run the extract subcommand."""
     results = extract_from_file(
         input_path=args.input,
         format_hint=args.format,
@@ -67,7 +66,6 @@ def _run_extract(args: argparse.Namespace) -> int:
 
 
 def _run_discover(args: argparse.Namespace) -> int:
-    """Run the discover subcommand."""
     results = discover_headers_from_file(
         input_path=args.input,
         format_hint=args.format,
@@ -93,7 +91,6 @@ def _run_discover(args: argparse.Namespace) -> int:
 
 
 def _run_stats(args: argparse.Namespace) -> int:
-    """Run the stats subcommand."""
     from mimic_bhc.io import load_results
     from mimic_bhc.population_stats import (
         compute_patient_concentration,
@@ -441,7 +438,6 @@ def _print_patient_concentration(concentration: PatientConcentration) -> None:
 
 
 def _add_extract_args(parser: argparse.ArgumentParser) -> None:
-    """Add arguments for the extract subcommand."""
     parser.add_argument(
         "--input",
         required=True,
@@ -479,7 +475,6 @@ def _add_extract_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_discover_args(parser: argparse.ArgumentParser) -> None:
-    """Add arguments for the discover subcommand."""
     parser.add_argument(
         "--input",
         required=True,
@@ -501,7 +496,6 @@ def _add_discover_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_stats_args(parser: argparse.ArgumentParser) -> None:
-    """Add arguments for the stats subcommand."""
     parser.add_argument(
         "--input",
         required=True,
@@ -538,7 +532,6 @@ def _add_stats_args(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> int:
-    """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="mimic-bhc-extract",
         description="Extract Brief Hospital Course sections from MIMIC discharge summaries.",
@@ -546,21 +539,18 @@ def main() -> int:
 
     subparsers = parser.add_subparsers(dest="command")
 
-    # extract subcommand
     extract_parser = subparsers.add_parser(
         "extract",
         help="Extract BHC sections from a MIMIC notes file",
     )
     _add_extract_args(extract_parser)
 
-    # discover subcommand
     discover_parser = subparsers.add_parser(
         "discover",
         help="Discover section headers in a MIMIC notes file",
     )
     _add_discover_args(discover_parser)
 
-    # stats subcommand
     stats_parser = subparsers.add_parser(
         "stats",
         help="Show summary statistics from extraction output",

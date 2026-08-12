@@ -94,9 +94,9 @@ def _has_nicu_specific_domain(bhc_text: str) -> bool:
 # a line that starts a new clinical-domain section.
 #
 # The patterns feed a count compared against a threshold, so dropping one
-# reclassifies admissions as narrative rather than merely losing a match. None
-# is inert: each is the sole marker in admissions that would otherwise change
-# category. Check with scripts/ablate_structure_rules.py.
+# reclassifies admissions as narrative rather than merely losing a match.
+# scripts/ablate_structure_rules.py reports how many change category when
+# one is dropped. Run it before deleting a pattern that looks redundant.
 
 # Hash-prefixed entries: # Problem, ## Problem, ##. Problem
 # The dominant marker, ahead of the rest by an order of magnitude.
@@ -130,9 +130,9 @@ _NUM_CLOSEPAREN_RE = re.compile(r"^[ \t]*\d+\)[ \t]*[A-Za-z]", re.MULTILINE)
 # carrying the domain's text after the colon: "Neuro: Head CT negative",
 # "Cardiovascular: ...". A capitalized phrase of at most 41 characters,
 # a colon, then a space or tab. That trailing space is required, so a
-# bare "Neuro:" ending the line does not match and is not counted.
-# _detect_numbering_convention() reports these as the "standalone"
-# convention, where standalone means unprefixed, not alone on the line.
+# bare "Neuro:" ending the line does not match.
+# These report as the "standalone" convention, where standalone means
+# unprefixed, not alone on the line.
 # The only pattern needing the discharge-header exclusion below.
 _UNPREFIXED_HEADER_RE = re.compile(
     r"^[ \t]*[A-Z][A-Za-z /\-]{1,40}:[ \t]",
@@ -256,10 +256,8 @@ def _detect_numbering_convention(bhc_text: str) -> str:
 
 # Acute/chronic partition headers on their own lines.
 #
-# Every component below was ablated against MIMIC-III and MIMIC-IV, and none is
-# inert: removing any one of them, down to the optional plural, changes how some
-# admissions classify. Check with scripts/ablate_structure_rules.py before
-# deleting anything that looks redundant.
+# scripts/ablate_structure_rules.py reports what each sub-expression is worth,
+# down to the optional plural. Run it before deleting one that looks redundant.
 #
 # The end anchor is what makes the optional colon safe. A third of real headers
 # carry no colon, so without it "Chronic problems were managed..." reads as one.
@@ -350,7 +348,6 @@ def classify_bhc_structure(bhc_text: str) -> StructureResult:
             modifiers=tuple(modifiers),
         )
 
-    # Default: no labeled sections detected
     return StructureResult(
         category=CATEGORY_NARRATIVE,
         modifiers=tuple(modifiers),

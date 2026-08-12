@@ -8,8 +8,8 @@ classification. Zero means inert. The rule comments in structure.py cite this
 script, so rerun it after editing either rule.
 
 - _count_labeled_sections, where a component is one whole pattern. The patterns
-  feed a count compared against a threshold, so removing one reclassifies
-  admissions as narrative rather than only losing a match.
+  feed a count compared against a threshold, so removing one drops admissions
+  below the threshold and reclassifies them as narrative.
 - _ACUTE_CHRONIC_RE, where a component is a sub-expression of the single
   pattern. Removing one loses matches. Removing an anchor adds them, so the
   anchors are reported as matches admitted.

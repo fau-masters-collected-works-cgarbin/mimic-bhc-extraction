@@ -16,13 +16,13 @@ import re
 # Header patterns (case-insensitive)
 # ---------------------------------------------------------------------------
 # Ordered from most specific to least specific so the match reports the best
-# variant.  Optional colon, optional trailing whitespace.
+# variant. Optional colon, optional trailing whitespace.
 #
 # Uses [ \t] instead of \s to avoid matching across line breaks. A line
 # ending with "hospital" and the next starting with "course" should not be
-# treated as a header.  The end-of-line anchor ($) is intentionally omitted
-# so that headers with inline text ("HOSPITAL COURSE:  The patient was...")
-# still match. The ^ anchor prevents mid-sentence false positives.
+# treated as a header. Without an end-of-line anchor, headers carrying
+# inline text ("HOSPITAL COURSE: The patient was...") still match. The ^
+# anchor prevents mid-sentence false positives.
 # Common prefix: optional "concise/brief summary of" or "history of"
 _SUMMARY_PREFIX = r"(?:(?:(?:concise|brief)[ \t]+)?summary[ \t]+of[ \t]+)?"
 _HISTORY_PREFIX = r"(?:history[ \t]+of[ \t]+)?"
@@ -44,16 +44,14 @@ _BHC_HEADER_RE = re.compile(
 
 # Priority-based header matching
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# extract_bhc() tries each pattern in order and uses the first match from
-# the highest-priority pattern that matches *anywhere* in the note.  This
-# avoids false positives from less specific patterns.
+# One compiled pattern per variant, to be tried in order. The first match
+# from the most specific pattern that matches anywhere in the note wins.
 #
 # Example: a note contains "His\nhospital course has been complicated..."
 # early on and "Brief Hospital Course:" later as a real section header.
 # A single combined regex would return the first textual match ("hospital
-# course"), which is a mid-sentence fragment.  Priority matching tries the
-# "brief hospital course" pattern first, finds the real header, and never
-# falls through to the bare "hospital course" pattern.
+# course"), which is a mid-sentence fragment. Trying the "brief hospital
+# course" pattern first finds the real header instead.
 _BHC_HEADER_PRIORITY = [
     re.compile(
         r"^[ \t]*(?:" + pat + r")[ \t]*:?[ \t]*",
@@ -65,13 +63,13 @@ _BHC_HEADER_PRIORITY = [
 # ---------------------------------------------------------------------------
 # End-boundary patterns (ranked allowlist)
 # ---------------------------------------------------------------------------
-# Only top-level discharge-summary section headers.  BHC-internal sub-headers
-# like "Cardiovascular:" or "Renal:" are intentionally excluded.
+# Only top-level discharge-summary section headers. BHC-internal sub-headers
+# like "Cardiovascular:" or "Renal:" stay out: as boundaries they would cut
+# the BHC off at its own first subsection.
 #
 # "Facility" and "Attending" are legitimate discharge-summary sections but
-# could in theory appear as standalone lines within a BHC.  The start-of-line
-# anchor mitigates most false positives. Empirical verification found no
-# premature truncation from these patterns.
+# could in theory appear as standalone lines within a BHC. The start-of-line
+# anchor mitigates most false positives.
 #
 # Uses [ \t] instead of \s for intra-pattern whitespace (same rationale as
 # the header patterns: avoid matching across line breaks).
@@ -107,15 +105,9 @@ _END_BOUNDARY_INDIVIDUAL = [
 # ---------------------------------------------------------------------------
 # Section header discovery pattern (any line that looks like a header)
 #
-# This is a more permissive pattern used for discovery and classification of
-# section headers. The regex intentionally allows for a wide range of potential
-# headers, including those that do not match the BHC header patterns or end
-# boundary patterns, to support exploratory analysis of what headers appear in
-# the notes. It looks for lines that start with optional whitespace, followed
-# by a capitalized word (indicating the start of a header), and may optionally
-# end with a colon. This is used in the discovery tools to find candidate headers
-# and classify them based on whether they match the known BHC header or end
-# boundary patterns.
+# Far more permissive than the BHC header and end-boundary patterns above:
+# it matches any capitalized line, so exploratory scans surface header
+# variants those two do not cover yet.
 # ---------------------------------------------------------------------------
 _SECTION_HEADER_RE = re.compile(
     r"^[ \t]*([A-Z][A-Za-z /\-]+):?\s*$",
