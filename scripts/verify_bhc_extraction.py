@@ -33,7 +33,7 @@ def separator(title: str) -> None:
 # Task 1: Categorize failures
 # ---------------------------------------------------------------------------
 def categorize_failures(results, n_inspect=20):
-    """Inspect failed extractions using note text from the extraction results."""
+    """Inspect failed extractions and bucket them by likely cause."""
     separator("TASK 1: Categorize Extraction Failures")
 
     failed = [r for r in results if not r.extraction_success]
@@ -142,7 +142,7 @@ def categorize_failures(results, n_inspect=20):
 # Task 2: Spot-check boundaries
 # ---------------------------------------------------------------------------
 def spot_check_boundaries(results, n_check=10):
-    """Verify extraction boundaries using note text from the extraction results."""
+    """Check extracted BHC boundaries against the original note text."""
     separator("TASK 2: Spot-Check Extraction Boundaries")
 
     import random as rand

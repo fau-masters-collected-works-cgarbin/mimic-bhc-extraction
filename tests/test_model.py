@@ -10,9 +10,6 @@ from mimic_bhc.structure import StructureResult
 from tests.test_extract import NO_HEADER_NOTE, STANDARD_NOTE
 
 
-# ---------------------------------------------------------------------------
-# BHCResult enrichment, properties, and serialization
-# ---------------------------------------------------------------------------
 class TestBHCResultEnrichment:
     def test_default_enrichment_fields(self):
         """Enrichment fields should default to None/empty."""

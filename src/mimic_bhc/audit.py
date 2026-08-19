@@ -31,8 +31,8 @@ def build_audit_entries(
 ) -> list[dict[str, Any]]:
     """Build audit entries from extraction results.
 
-    Each entry contains extraction metadata, review flags, and empty
-    fields for human review. No MIMIC text is included.
+    Each entry contains extraction metadata, review flags, and empty fields
+    for a human reviewer to fill in.
     """
     now = datetime.now(tz=UTC).isoformat()
 

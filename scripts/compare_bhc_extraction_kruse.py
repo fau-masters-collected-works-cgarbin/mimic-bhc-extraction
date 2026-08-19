@@ -51,8 +51,8 @@ _CAUSE_ORDER = "both markers present, end precedes start"
 # Known limitation (present in the original code): the end-header search
 # starts from position 0, not from after the start match. If an end header
 # appears before the BHC start header, the extraction is incorrect. Kept as
-# it is, so the comparison measures their extractor rather than a repaired
-# version of it. The report counts how often it fires, as _CAUSE_ORDER.
+# it is, so the comparison measures their extractor. The report counts how
+# often it fires, as _CAUSE_ORDER.
 _KRUSE_START_RE = re.compile(r"(Brief Hospital Course:|HOSPITAL COURSE:)")
 _KRUSE_END_RE = re.compile(
     r"(Discharge Medications:|DISCHARGE STATUS:|Medications on Admission:"

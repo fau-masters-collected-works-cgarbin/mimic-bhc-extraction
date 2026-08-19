@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, TypedDict
 import duckdb
 import pandas as pd
 
+from mimic_bhc._util import percentile
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -47,8 +49,7 @@ DBSOURCE_METAVISION = "metavision"
 DBSOURCE_MIXED = "mixed"
 DBSOURCE_NO_ICU = "no_icu"
 
-# Patient concentration: 4+ is the upper bucket the cohort doc uses for the
-# tail of the admission-count distribution.
+# Admissions per patient are reported as 1, 2, 3, and 4+. This is the 4+ edge.
 _PATIENT_CONCENTRATION_TAIL_BUCKET = 4
 
 # Length of stay: < 3 days is the slice the cohort filter (LOS >= 3) removes.
@@ -56,8 +57,7 @@ _LOS_FILTER_DAYS = 3
 
 # Bucket edges anchored to population LOS quartiles (Q25=4, median=7,
 # Q75=13) and BHC-length quartiles (Q25~=1544, median~=2521, Q75~=3940),
-# not balanced for equal counts. The long-tail buckets (21+ days,
-# 10,000+ chars) are intentionally smaller.
+# not balanced for equal counts.
 _LOS_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
     ("<3 days", 0, 2),
     ("3 to 4 days", 3, 4),
@@ -256,11 +256,11 @@ def load_admissions(path: str, hadm_ids: set[int]) -> pd.DataFrame:
 
     Returns a DataFrame indexed by hadm_id with ``hospital_expire_flag`` and
     ``los_days`` columns. Rows whose hadm_id is not in ``hadm_ids`` are
-    dropped. ``los_days`` mirrors the cohort doc's convention:
-    ``DATE_DIFF('day', ADMITTIME, DISCHTIME)``, the integer number of day
-    boundaries crossed between admit and discharge, not fractional days.
-    ``Jan 1 23:00 -> Jan 4 01:00`` crosses three boundaries and passes the
-    ``LOS >= 3`` cohort filter. Fractional days would give 2.08 and drop it.
+    dropped. ``los_days`` is ``DATE_DIFF('day', ADMITTIME, DISCHTIME)``, the
+    integer number of day boundaries crossed between admit and discharge, not
+    fractional days. ``Jan 1 23:00 -> Jan 4 01:00`` crosses three boundaries
+    and passes the ``LOS >= 3`` cohort filter. Fractional days would give 2.08
+    and drop it.
     """
     df = _read_csv_lower(path)
     df = df[df["hadm_id"].isin(hadm_ids)].copy()
@@ -369,18 +369,6 @@ def load_icu_dbsource(path: str, hadm_ids: set[int]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Population stats assembly
 # ---------------------------------------------------------------------------
-
-
-def _percentile(sorted_values: list[float], q: float) -> float:
-    """Linear interpolation percentile (pandas default)."""
-    if not sorted_values:
-        return 0.0
-    n = len(sorted_values)
-    pos = q * (n - 1)
-    low = int(pos)
-    high = min(low + 1, n - 1)
-    frac = pos - low
-    return sorted_values[low] + frac * (sorted_values[high] - sorted_values[low])
 
 
 def _build_admission_frame(
@@ -521,10 +509,10 @@ def _los_stats(df: pd.DataFrame) -> LosStats:
         }
     return {
         "mean": sum(los) / len(los),
-        "median": _percentile(los, 0.5),
-        "p25": _percentile(los, 0.25),
-        "p75": _percentile(los, 0.75),
-        "p90": _percentile(los, 0.9),
+        "median": percentile(los, 0.5),
+        "p25": percentile(los, 0.25),
+        "p75": percentile(los, 0.75),
+        "p90": percentile(los, 0.9),
         "lt_3_days": sum(1 for v in los if v < _LOS_FILTER_DAYS),
         "total": len(los),
     }
@@ -533,7 +521,7 @@ def _los_stats(df: pd.DataFrame) -> LosStats:
 def _format_cross_tab(df: pd.DataFrame) -> FormatByNoteCategory:
     """Cross-tabulate BHC format (narrative, domain_organized) against note-category.
 
-    Templates (standardized_template) are excluded per the cohort doc.
+    Admissions classified as standardized_template are dropped.
     """
     keep = df[df["bhc_format"].isin(["narrative", "domain_organized"])]
     keep = keep.dropna(subset=["note_category"])
@@ -581,11 +569,11 @@ def _distribution(values: pd.Series) -> DistributionStats:
             "n": 0,
         }
     return {
-        "median": _percentile(sorted_vals, 0.5),
+        "median": percentile(sorted_vals, 0.5),
         "mean": sum(sorted_vals) / n,
-        "p25": _percentile(sorted_vals, 0.25),
-        "p75": _percentile(sorted_vals, 0.75),
-        "p90": _percentile(sorted_vals, 0.9),
+        "p25": percentile(sorted_vals, 0.25),
+        "p75": percentile(sorted_vals, 0.75),
+        "p90": percentile(sorted_vals, 0.9),
         "min": int(sorted_vals[0]),
         "max": int(sorted_vals[-1]),
         "n": n,
@@ -615,7 +603,7 @@ def compute_population_stats(
     noteevents_path: str,
     icustays_path: str | None = None,
 ) -> PopulationStats:
-    """Compute the five MIMIC-derived population statistics.
+    """Compute the MIMIC-derived population statistics.
 
     The admission universe is the set of hadm_ids whose extraction succeeded.
     All MIMIC tables are filtered to that set before computation. The

@@ -1,7 +1,7 @@
 """Generate BHC extraction audit files for manual review.
 
-Reads persisted extraction results (JSONL) and produces an audit file
-with review flags and fields for human review status.
+Reads persisted extraction results (JSONL) and writes an audit file for
+manual review.
 
 Usage:
     uv run python scripts/generate_bhc_audit.py \

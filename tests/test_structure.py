@@ -344,7 +344,7 @@ Neurology: Normal exam.
 
 class TestModifiers:
     def test_acute_chronic_variants(self):
-        """Various acute/chronic header phrasings should be detected."""
+        """Case, the issues/problems noun, compound keywords, dividers, and bold all fire."""
         for header in [
             "ACUTE ISSUES:",
             "Acute Issues:",
@@ -375,7 +375,7 @@ class TestModifiers:
             assert MODIFIER_ACUTE_CHRONIC in result.modifiers, f"Failed to detect: {header}"
 
     def test_transitional_variants(self):
-        """Various transitional header phrasings should be detected."""
+        """Case, the optional 'care', the short 'Transitions' form, and a hash prefix all fire."""
         for header in [
             "Transitional Issues:",
             "TRANSITIONAL ISSUES:",

@@ -19,9 +19,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# ---------------------------------------------------------------------------
-# Category and modifier constants
-# ---------------------------------------------------------------------------
 CATEGORY_NARRATIVE = "narrative"
 CATEGORY_DOMAIN_ORGANIZED = "domain_organized"
 CATEGORY_STANDARDIZED_TEMPLATE = "standardized_template"
@@ -56,10 +53,9 @@ _NICU_DOMAIN_RES = [
     for pat in _NICU_DOMAINS
 ]
 
-# Threshold for NICU template detection. All three observed NICU templates
-# in Phase 1 used 7-9 of these domains. A threshold of 4 provides margin
-# while staying well above the 1-2 domain matches that appear incidentally
-# in non-NICU organ-system reviews.
+# The three NICU templates seen while developing the pattern used 7-9 of these
+# domains. A threshold of 4 provides margin while staying well above the 1-2
+# domain matches that appear incidentally in non-NICU organ-system reviews.
 _MIN_NICU_DOMAINS = 4
 
 # NICU-specific domains that almost never appear in non-NICU organ-system
@@ -126,8 +122,8 @@ _NUM_SLASH_RE = re.compile(r"^[ \t]*\d+/[ \t]*[A-Za-z]", re.MULTILINE)
 # Numbered with closing paren only: 1) Problem
 _NUM_CLOSEPAREN_RE = re.compile(r"^[ \t]*\d+\)[ \t]*[A-Za-z]", re.MULTILINE)
 
-# Clinical-domain headers with no prefix marker, opening a line and
-# carrying the domain's text after the colon: "Neuro: Head CT negative",
+# Clinical-domain headers with no prefix marker, opening a line with the
+# domain's text after the colon: "Neuro: Head CT negative",
 # "Cardiovascular: ...". A capitalized phrase of at most 41 characters,
 # a colon, then a space or tab. That trailing space is required, so a
 # bare "Neuro:" ending the line does not match.
@@ -153,8 +149,7 @@ _ASTERISK_ENTRY_RE = re.compile(
 _MIN_DOMAIN_SECTIONS = 2
 
 # Discharge-summary section headers that may appear inside extracted BHC text
-# due to extraction boundary issues. These should not be counted as
-# clinical-domain sections for Category B detection.
+# due to extraction boundary issues.
 _DISCHARGE_HEADER_RE = re.compile(
     r"^[ \t]*(?:"
     r"condition[ \t]+on[ \t]+discharge"
@@ -260,7 +255,7 @@ def _detect_numbering_convention(bhc_text: str) -> str:
 # down to the optional plural. Run it before deleting one that looks redundant.
 #
 # The end anchor is what makes the optional colon safe. A third of real headers
-# carry no colon, so without it "Chronic problems were managed..." reads as one.
+# have no colon, so without it "Chronic problems were managed..." reads as one.
 # Divider styles outside the prefix and suffix sets (<<, [], --) are missed.
 _ACUTE_CHRONIC_RE = re.compile(
     # prefix dividers >> * #

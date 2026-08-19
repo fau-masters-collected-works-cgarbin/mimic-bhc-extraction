@@ -34,7 +34,7 @@ def _design_doc_text() -> str:
 # ---------------------------------------------------------------------------
 class TestDesignDocMatchesCode:
     def test_header_pattern_count(self):
-        """Doc says 'Four case-insensitive regex patterns match the BHC header'."""
+        """Doc says 'N case-insensitive regex patterns match the BHC header'."""
         text = _design_doc_text()
         match = re.search(r"(\w+) case-insensitive regex patterns match the BHC header", text)
         assert match is not None, "Could not find header pattern count claim in doc"
@@ -101,7 +101,7 @@ class TestCodingRulesMatchTheClassifier:
             )
 
     def test_category_threshold(self):
-        """Doc says 'two or more explicitly labeled sections'."""
+        """Doc says 'N or more explicitly labeled sections'."""
         text = _CODING_RULES_DOC.read_text()
         match = re.search(r"\*\*(\w+) or more\*\* explicitly labeled sections", text)
         assert match is not None, "Could not find the category threshold claim in doc"

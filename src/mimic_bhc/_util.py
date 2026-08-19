@@ -6,8 +6,22 @@ import gzip
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import duckdb
     import pandas as pd
+
+
+def percentile(sorted_values: Sequence[float], q: float) -> float:
+    """Linear interpolation percentile, matching the pandas default."""
+    if not sorted_values:
+        return 0.0
+    n = len(sorted_values)
+    pos = q * (n - 1)
+    low = int(pos)
+    high = min(low + 1, n - 1)
+    frac = pos - low
+    return sorted_values[low] + frac * (sorted_values[high] - sorted_values[low])
 
 
 def load_dataframe(conn: duckdb.DuckDBPyConnection, input_path: str) -> pd.DataFrame:

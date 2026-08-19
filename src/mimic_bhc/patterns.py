@@ -20,8 +20,8 @@ import re
 #
 # Uses [ \t] instead of \s to avoid matching across line breaks. A line
 # ending with "hospital" and the next starting with "course" should not be
-# treated as a header. Without an end-of-line anchor, headers carrying
-# inline text ("HOSPITAL COURSE: The patient was...") still match. The ^
+# treated as a header. Without an end-of-line anchor, headers with inline
+# text ("HOSPITAL COURSE: The patient was...") still match. The ^
 # anchor prevents mid-sentence false positives.
 # Common prefix: optional "concise/brief summary of" or "history of"
 _SUMMARY_PREFIX = r"(?:(?:(?:concise|brief)[ \t]+)?summary[ \t]+of[ \t]+)?"
@@ -106,7 +106,7 @@ _END_BOUNDARY_INDIVIDUAL = [
 # Section header discovery pattern (any line that looks like a header)
 #
 # Far more permissive than the BHC header and end-boundary patterns above:
-# it matches any capitalized line, so exploratory scans surface header
+# it matches any capitalized line, so exploratory scans find header
 # variants those two do not cover yet.
 # ---------------------------------------------------------------------------
 _SECTION_HEADER_RE = re.compile(

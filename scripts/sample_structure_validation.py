@@ -180,7 +180,7 @@ def write_coding_sheet(cases, texts, path):
         "# BHC format validation: coding sheet",
         "",
         "Code each case against docs/bhc-format-coding-rules.md in the",
-        "mimic-bhc-extraction repository. It carries the rules, the four fields",
+        "mimic-bhc-extraction repository. It gives the rules, the four fields",
         "to record, and what to do with a case the rules do not settle.",
         "",
     ]

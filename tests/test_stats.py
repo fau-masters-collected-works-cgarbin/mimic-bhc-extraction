@@ -106,9 +106,6 @@ class TestComputeBhcStats:
         }
 
 
-# ---------------------------------------------------------------------------
-# Structure eligibility
-# ---------------------------------------------------------------------------
 class TestIsStructureEligible:
     """Every script that classifies BHC format shares this predicate, so a
     shift in the boundary would move the corpus all of them report on.

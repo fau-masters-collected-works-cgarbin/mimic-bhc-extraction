@@ -44,11 +44,6 @@ def _result(
     )
 
 
-# ---------------------------------------------------------------------------
-# compute_patient_concentration
-# ---------------------------------------------------------------------------
-
-
 class TestPatientConcentration:
     def test_buckets_distribution(self):
         results = [
@@ -143,11 +138,6 @@ def icustays_gz(tmp_path):
     with gzip.open(path, "wt") as f:
         f.write(csv)
     return path
-
-
-# ---------------------------------------------------------------------------
-# Loaders
-# ---------------------------------------------------------------------------
 
 
 class TestLoaders:

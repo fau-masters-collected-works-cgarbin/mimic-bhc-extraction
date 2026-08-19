@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 # Valid values for quality_flags entries.
 #   "iserror"          - MIMIC-III NOTEEVENTS.ISERROR was 1 (note entered in error)
-#   "below_min_length" - extracted BHC text is shorter than MIN_BHC_LENGTH (100 chars)
+#   "below_min_length" - extracted BHC text is shorter than MIN_BHC_LENGTH
 #   "unbounded"        - no end header found, so the BHC runs to the end of the note
 QualityFlag = Literal["iserror", "below_min_length", "unbounded"]
 

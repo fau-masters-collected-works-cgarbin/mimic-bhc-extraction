@@ -63,11 +63,6 @@ def _make_record(
     ).to_dict()
 
 
-# ---------------------------------------------------------------------------
-# _run_stats
-# ---------------------------------------------------------------------------
-
-
 class TestRunStats:
     def test_basic_output(self, tmp_path, capsys):
         path = tmp_path / "results.jsonl"
@@ -138,8 +133,8 @@ class TestRunStats:
     def test_resolve_mimic_paths_exits_when_required_table_missing(self):
         """ADMISSIONS provided without NOTEEVENTS: exit with code 2.
 
-        Population stats need both tables. Passing only one is a config error
-        the CLI must surface loudly.
+        Population stats need both tables. Passing only one is a config error,
+        so the CLI exits instead of skipping population stats silently.
         """
         args = Namespace(
             mimic_dir=None,
@@ -160,11 +155,6 @@ class TestRunStats:
             icustays=None,
         )
         assert _resolve_mimic_paths(args) is None
-
-
-# ---------------------------------------------------------------------------
-# _print_bucketed_availability
-# ---------------------------------------------------------------------------
 
 
 def _bucket_row(

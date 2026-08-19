@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from mimic_bhc._util import percentile
+
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
@@ -15,8 +17,7 @@ if TYPE_CHECKING:
 # documentation, which is not in Aali et al.'s paper or code.
 MIN_BHC_LENGTH = 100
 
-# A BHC shorter than this carries too little structure to classify, since a
-# few sentences give the format rules nothing to work with. Separate from
+# A BHC shorter than this has too little structure to classify. Separate from
 # MIN_BHC_LENGTH, which asks whether an extraction looks suspiciously short.
 MIN_STRUCTURE_CHARS = 500
 
@@ -64,19 +65,15 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
 
     successful = [r for r in results if r.extraction_success]
 
-    # Failure breakdown
     failure_reasons = dict(
         Counter(r.failure_reason for r in results if not r.extraction_success and r.failure_reason)
     )
 
-    # Header distribution
     header_dist = dict(Counter(r.start_header for r in successful if r.start_header))
 
-    # End header distribution
     end_dist = dict(Counter(r.end_header for r in successful if r.end_header is not None))
     unbounded = sum(1 for r in successful if r.end_header is None)
 
-    # Structure distribution
     format_dist = dict(Counter(r.bhc_structure.category for r in successful if r.bhc_structure))
 
     # Median length per structure category
@@ -98,8 +95,8 @@ def compute_bhc_stats(results: Sequence[BHCResult]) -> BHCStats:
         length_stats = {
             "mean": sum(lengths) / n,
             "median": _median(lengths),
-            "q25": _percentile(lengths, 0.25),
-            "q75": _percentile(lengths, 0.75),
+            "q25": percentile(lengths, 0.25),
+            "q75": percentile(lengths, 0.75),
             "min": lengths[0],
             "max": lengths[-1],
         }
@@ -125,13 +122,3 @@ def _median(sorted_values: list[int]) -> float:
     if n % 2 == 1:
         return float(sorted_values[n // 2])
     return (sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2.0
-
-
-def _percentile(sorted_values: list[int], q: float) -> float:
-    """Linear interpolation percentile matching pandas default."""
-    n = len(sorted_values)
-    pos = q * (n - 1)
-    low = int(pos)
-    high = min(low + 1, n - 1)
-    frac = pos - low
-    return sorted_values[low] + frac * (sorted_values[high] - sorted_values[low])

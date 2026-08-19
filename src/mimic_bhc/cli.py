@@ -18,6 +18,7 @@ from mimic_bhc.population_stats import (
     CLINICAL_NARRATIVE,
     IMAGING_ONLY,
 )
+from mimic_bhc.stats import MIN_BHC_LENGTH
 
 if TYPE_CHECKING:
     from mimic_bhc.population_stats import (
@@ -164,7 +165,7 @@ def _print_bhc_text_properties(stats: BHCStats) -> None:
         )
         print(f"  Min: {length['min']:,}  Max: {length['max']:,}")
     if stats["short_extractions"] > 0:
-        print(f"  Short extractions (<100 chars): {stats['short_extractions']:,}")
+        print(f"  Short extractions (<{MIN_BHC_LENGTH} chars): {stats['short_extractions']:,}")
 
     successes = stats["successes"]
     median_by_format = stats["median_length_by_format"]

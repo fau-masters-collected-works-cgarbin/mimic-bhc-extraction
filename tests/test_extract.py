@@ -136,9 +136,6 @@ Home with services.
 """
 
 
-# ---------------------------------------------------------------------------
-# extract_bhc tests
-# ---------------------------------------------------------------------------
 class TestExtractBhc:
     def test_standard_extraction(self):
         result = extract_bhc(STANDARD_NOTE)
@@ -247,9 +244,6 @@ Aspirin 81mg
         assert INLINE_TEXT_HEADER_NOTE[result.bhc_start : result.bhc_end] == result.bhc_text
 
 
-# ---------------------------------------------------------------------------
-# Priority-based header matching tests
-# ---------------------------------------------------------------------------
 class TestHeaderPriorityMatching:
     def test_brief_header_preferred_over_bare_hospital_course(self):
         """When both 'hospital course' and 'Brief Hospital Course:' appear,
