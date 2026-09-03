@@ -13,7 +13,7 @@ Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV dischar
   - **Standardized template**: NICU-style templates with fixed domain structure.
 - **Modifier Detection**: Identifies acute/chronic partitions and transitional care sections.
 - **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
-- **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, etc.).
+- **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, MIMIC-III error-entered notes).
 - **CLI and Python API**: Use the [command-line tool](#command-line) for batch processing or import the library for [single-note extraction](#single-note-extraction) and [batch file processing](#batch-extraction).
 
 Compared to previous extraction tools, this package covers more header variants, classifies organizational structure in ways that connect to generation tasks, and returns structured extraction metadata for systematic quality assessment. See [Pattern development process](docs/extraction-design.md#pattern-development-process) for the development and validation methodology.
@@ -153,7 +153,7 @@ Each record contains:
 
 Extraction fails (`extraction_success: false`) when no recognizable BHC header is found in the note (`failure_reason: "no_header"`) or when the region between the header and the end boundary is empty (`failure_reason: "empty_section"`). See [Two-phase extraction](docs/extraction-design.md#two-phase-extraction) for how the extractor determines success or failure.
 
-`iserror` is a MIMIC-III-specific quality flag, not a failure condition. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired. No discharge summary row sets ISERROR in v1.4, so the flag does not appear on that release, but the extractor reads the column rather than assuming that holds.
+`iserror` is a MIMIC-III-specific quality flag that does not affect extraction success. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired. No discharge summary row sets ISERROR in v1.4, so the flag does not appear on that release. The extractor reads the column on every release regardless.
 
 ## Supporting Tools
 
@@ -183,8 +183,8 @@ uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl --mimic-dir $MIMIC3_NOTE
 
 Adds five sections that require joining the extraction output with MIMIC-III source tables:
 
-- Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available, and further by length-of-stay bucket and BHC-length bucket. The bucket breakdowns report a Total column alongside CareVue and MetaVision. Mixed and No-ICU admissions roll into the Total column but are not surfaced as separate columns. Their unstratified counts are visible in the parent "By ICU system" sub-block.
-- Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed), matching the cohort builder's `LOS >= 3` filter.
+- Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available, and further by length-of-stay bucket and BHC-length bucket. The bucket breakdowns report a Total column alongside CareVue and MetaVision. Mixed and No-ICU admissions roll into the Total column but get no column of their own. Their unstratified counts are visible in the parent "By ICU system" sub-block.
+- Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed), matching the `LOS >= 3` cohort filter used in the dissertation cohort-selection step.
 - Source-record content per admission by note-category class (discharge summary excluded): note count and total note characters per admission, summarized as Median, Mean, Q25, Q75, Q90, Min, Max, and n, split by note-category class (`clin_narr`, `imaging_only`) and by ICU system (All systems, CareVue, MetaVision).
 - BHC format by note-category availability: 2x2 cross-tab of `narrative` and `domain_organized` against `clinical_narrative` and `imaging_only`. Templates (`standardized_template`) are excluded. The script self-checks the row totals against the structure distribution and raises an error if they disagree.
 - Mortality: count and percentage of admissions where `HOSPITAL_EXPIRE_FLAG = 1`.
@@ -288,7 +288,9 @@ uv run python scripts/sample_structure_validation.py \
 - **Single data structure**: `BHCResult` is the canonical representation throughout, from extraction through serialization. See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for how it gets populated in layers.
 - **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch module adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
 
-For a detailed walkthrough of the extraction algorithm, pattern design, and deduplication logic, see [docs/extraction-design.md](docs/extraction-design.md). For extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations, see [docs/empirical-findings.md](docs/empirical-findings.md). For the rules a person applies when hand-coding BHC format, which is how `classify_bhc_structure()` is validated, see [docs/bhc-format-coding-rules.md](docs/bhc-format-coding-rules.md).
+- [docs/extraction-design.md](docs/extraction-design.md): the extraction algorithm, pattern design, and deduplication logic.
+- [docs/empirical-findings.md](docs/empirical-findings.md): extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations.
+- [docs/bhc-format-coding-rules.md](docs/bhc-format-coding-rules.md): the rules a person applies when hand-coding BHC format, which is how `classify_bhc_structure()` is validated.
 
 ## Development
 
@@ -301,11 +303,11 @@ uv sync
 uv run pre-commit install
 ```
 
-This installs all dependencies (including dev/test) and enables pre-commit hooks that run ruff on every commit (lint + format).
+This installs all dependencies (including dev/test) and enables pre-commit hooks that run ruff (lint + format) and the test suite on every commit.
 
 ### Running locally
 
-All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The same commands work with MIMIC-IV-Note's `discharge.csv.gz` file. The extractor auto-detects the format.
+These examples use the same files as [Usage](#usage): MIMIC-III `NOTEEVENTS.csv.gz`, or MIMIC-IV-Note's `discharge.csv.gz`.
 
 After setup, use `uv run` to invoke the CLI within the project environment.
 
@@ -333,8 +335,8 @@ uv run pytest
 ### Linting and formatting
 
 ```bash
-uv run ruff check src/ tests/
-uv run ruff format src/ tests/
+uv run ruff check src/ tests/ scripts/
+uv run ruff format src/ tests/ scripts/
 ```
 
 These run automatically on commit via pre-commit hooks, but can be run manually to check before committing.

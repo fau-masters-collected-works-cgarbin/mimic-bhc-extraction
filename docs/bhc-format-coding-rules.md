@@ -4,11 +4,11 @@ Rules for classifying a Brief Hospital Course by organizational format. `src/mim
 
 To use it: read a BHC, apply rule 1 and rule 2, and record the fields listed at the end. Do not read `structure.py` while coding, because you would copy its answers instead of applying the rules.
 
-The examples are invented, not drawn from any dataset.
+The examples are invented for this document.
 
 ## Categories
 
-**Narrative.** Continuous prose that follows the clinical trajectory, with events in the order they happened. Topics may shift, but the wording signals the shift rather than a heading.
+**Narrative.** Continuous prose that follows the clinical trajectory, with events in the order they happened. Topics may shift, but the wording alone signals the shift.
 
 **Domain-organized.** Content divided into labeled sections, one per clinical problem or organ system.
 
@@ -29,7 +29,7 @@ A labeled section is a line that opens a new topic and carries a visible marker.
 
 These do not count as labeled sections:
 
-- Discharge-summary headers that leaked into the extracted text. They are extraction artifacts, not sections the author wrote into the hospital course.
+- Discharge-summary headers that leaked into the extracted text. They are extraction artifacts: text from the surrounding sections of the discharge summary.
 - A lone labeled section. One header-like line in otherwise continuous prose is more often an artifact than a decision about organization.
 
 Domain-organized, two labeled sections:
@@ -84,11 +84,11 @@ Absent, the words appear inside a sentence:
 Chronic problems were managed per the outpatient regimen.
 ```
 
-## Transitional issues
+## Transitional Issues
 
 Present when a labeled section near the end of the BHC collects follow-up instructions, pending results, medication changes, or handoff items.
 
-Recorded, not scored.
+The coder records this field. It does not count toward the agreement score.
 
 ## Ambiguous cases
 
@@ -102,5 +102,5 @@ Per case:
 
 - Category
 - Acute/chronic partition, yes or no
-- Transitional issues section, yes or no
+- Transitional Issues section, yes or no
 - A note, if the rules did not settle the case
