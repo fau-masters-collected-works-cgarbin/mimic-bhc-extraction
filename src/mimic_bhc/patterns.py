@@ -86,8 +86,17 @@ _END_BOUNDARIES: list[tuple[str, str]] = [
     ("Attending", r"attending"),
 ]
 
+_END_BOUNDARY_ALTERNATION = "|".join(pat for _, pat in _END_BOUNDARIES)
+
 END_BOUNDARY_RE = re.compile(
-    r"^[ \t]*(?:" + "|".join(pat for _, pat in _END_BOUNDARIES) + r")[ \t]*:?[ \t]*$",
+    r"^[ \t]*(?:" + _END_BOUNDARY_ALTERNATION + r")[ \t]*:?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# The same sections without the end anchor, to match a header that leaked into
+# the extracted text and carries its section content on the same line.
+DISCHARGE_HEADER_RE = re.compile(
+    r"^[ \t]*(?:" + _END_BOUNDARY_ALTERNATION + r")[ \t]*:?",
     re.IGNORECASE | re.MULTILINE,
 )
 

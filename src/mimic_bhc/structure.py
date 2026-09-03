@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from mimic_bhc.patterns import DISCHARGE_HEADER_RE
+
 CATEGORY_NARRATIVE = "narrative"
 CATEGORY_DOMAIN_ORGANIZED = "domain_organized"
 CATEGORY_STANDARDIZED_TEMPLATE = "standardized_template"
@@ -146,23 +148,6 @@ _ASTERISK_ENTRY_RE = re.compile(
 # domain-based organization.
 _MIN_DOMAIN_SECTIONS = 2
 
-# Discharge-summary section headers that may appear inside extracted BHC text
-# due to extraction boundary issues.
-_DISCHARGE_HEADER_RE = re.compile(
-    r"^[ \t]*(?:"
-    r"condition[ \t]+on[ \t]+discharge"
-    r"|discharge[ \t]+(?:condition|medications?|diagnosis"
-    r"|diagnoses|instructions?|disposition|status|diet)"
-    r"|medications?[ \t]+on[ \t]+(?:admission|discharge)"
-    r"|followup[ \t]+instructions?"
-    r"|follow[ \t-]up[ \t]+instructions?"
-    r"|facility"
-    r"|completed[ \t]+by"
-    r"|attending"
-    r")[ \t]*:?",
-    re.IGNORECASE | re.MULTILINE,
-)
-
 
 def _is_discharge_header(bhc_text: str, match_start: int) -> bool:
     """Check if an unprefixed header match is actually a discharge-summary section header."""
@@ -172,7 +157,7 @@ def _is_discharge_header(bhc_text: str, match_start: int) -> bool:
     if line_end == -1:
         line_end = len(bhc_text)
     line = bhc_text[line_start:line_end]
-    return _DISCHARGE_HEADER_RE.match(line) is not None
+    return DISCHARGE_HEADER_RE.match(line) is not None
 
 
 def _count_labeled_sections(bhc_text: str) -> int:

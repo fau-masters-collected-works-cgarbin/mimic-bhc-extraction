@@ -71,6 +71,8 @@ All patterns are anchored to the start of the line (`^` with `re.MULTILINE`) to 
 
 High-confidence boundaries are unambiguous as section headers. The medium-confidence three are legitimate sections whose words ("Facility", "Attending") could also appear within a BHC narrative. The start-of-line anchor mitigates that. `tests/test_doc_sync.py` checks this table against `_END_BOUNDARIES`.
 
+`patterns.py` also compiles the list without the end anchor. `structure.py` imports that one to exclude a header that leaks into the extracted text from the labeled-section count.
+
 The boundary list excludes BHC-internal sub-headers like "Cardiovascular:", "Renal:", or "Infectious Disease:". These appear inside domain-organized BHCs and must not terminate extraction.
 
 It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, this content is discharge planning, but clinicians type it into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The released MIMIC-IV-Ext-BHC data retains this content in its BHC field, though Aali et al. (2025) do not document it as a design choice.

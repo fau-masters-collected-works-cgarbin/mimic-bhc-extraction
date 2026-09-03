@@ -250,6 +250,26 @@ DISCHARGE MEDICATIONS: Amoxicillin 500mg three times daily.
         result = classify_bhc_structure(narrative_with_discharge_headers)
         assert result.category == CATEGORY_NARRATIVE
 
+    def test_every_end_boundary_is_excluded_from_the_section_count(self):
+        """Every end-boundary section is ignored when it leaks into the BHC.
+
+        Two of each label, so failing to ignore them would clear the
+        two-section threshold and read as domain-organized.
+        """
+        from mimic_bhc.patterns import _END_BOUNDARIES
+
+        for label, _ in _END_BOUNDARIES:
+            bhc = (
+                "The patient was admitted and treated with antibiotics.\n"
+                "She improved over three days.\n"
+                "\n"
+                f"{label.upper()}: Stable and improved.\n"
+                "\n"
+                f"{label.upper()}: A second one, to clear the two-section threshold.\n"
+            )
+            result = classify_bhc_structure(bhc)
+            assert result.category == CATEGORY_NARRATIVE, f"{label!r} counted as a labeled section"
+
 
 # ---------------------------------------------------------------------------
 # Category C: Standardized template
