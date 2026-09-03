@@ -1,8 +1,7 @@
 """DuckDB-based batch extraction and structure classification.
 
 Loads a MIMIC notes file, runs extraction and structure classification over
-it, and returns one enriched BHCResult per admission. DuckDB does the file
-reading and stays behind these functions.
+it, and returns one enriched BHCResult per admission.
 """
 
 from __future__ import annotations

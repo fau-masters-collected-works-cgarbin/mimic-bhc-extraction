@@ -657,7 +657,7 @@ class TestNoteVolumeStats:
         assert volume["note_chars"]["carevue"][IMAGING_ONLY]["n"] == 0
 
         # MetaVision imaging_only: hadm 200 (1 note, 5 chars) and hadm 300
-        # (discharge-summary only, fills as 0). Median = 2.5, min = 0.
+        # (discharge-summary only, fills as 0).
         mv_io = volume["note_chars"]["metavision"][IMAGING_ONLY]
         assert mv_io["n"] == 2
         assert mv_io["min"] == 0
@@ -693,7 +693,7 @@ class TestNoteVolumeStats:
     def test_carevue_metavision_omitted_without_icustays(
         self, admissions_with_volume, noteevents_volume_gz
     ):
-        """No ICUSTAYS path: only the All-systems system bucket is emitted."""
+        """No ICUSTAYS path: only the "total" system bucket is emitted."""
         results = [_result(hadm_id=100, subject_id=10)]
         stats = compute_population_stats(
             results,

@@ -322,8 +322,7 @@ Stable.
         assert "observation" in result.bhc_text
 
     def test_abbreviated_hosp_course_is_lowest_priority(self):
-        """'Hosp. Course' is the least specific pattern and should only
-        match when no higher-priority pattern exists."""
+        """'Hosp. Course' matches as a header on its own."""
         note = """\
 Hosp. Course:
 Patient admitted for elective procedure.

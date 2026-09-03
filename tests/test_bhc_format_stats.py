@@ -99,7 +99,7 @@ class TestReadRows:
 
 class TestOverallMedian:
     def test_the_median_covers_both_formats_together(self):
-        """A median over one format's lengths describes that format, not the corpus."""
+        """The corpus-wide median pools every format's lengths together."""
         summary = stats.summarize(
             [
                 _row(CATEGORY_NARRATIVE, 1000),

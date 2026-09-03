@@ -15,7 +15,6 @@ def _make_result(
     *,
     success: bool = True,
 ):
-    """Create a BHCResult for testing."""
     if success:
         return BHCResult(
             extraction_success=True,

@@ -34,13 +34,13 @@ How to use it:
    validation_key.md to --out-dir.
 3. Open validation_coding_sheet.md and code the cases.
 4. Open validation_key.md and count the disagreements per rule. Disagreements
-   are the result, so score them against MAX_DISAGREEMENTS below rather than
-   reconciling them. A rule over its limit is the thing that is wrong, and it
+   are the result: score them against MAX_DISAGREEMENTS below. Do not
+   reconcile them. A rule over its limit is the thing that is wrong, and it
    needs revising and re-validating on a fresh draw.
 
 Point --exclude at any file listing hadm_ids that have already been coded or
-annotated. On one of those the coder would be recalling a label rather than
-applying the rules.
+annotated. On one of those the coder already knows the label, so applying the
+rules would test nothing.
 
 Usage:
     uv run python scripts/sample_structure_validation.py \
@@ -76,8 +76,8 @@ GROUP_ACUTE_CHRONIC = "acute_chronic"
 # The category rule is scored over its two groups pooled, at 30 cases, because
 # 30 with no disagreement puts a lower bound near 90% by the rule of three.
 # Acute/chronic is a single pattern over header lines, so a correct rule should
-# disagree on none of its 10, and two would mean the pattern is wrong rather
-# than the sample unlucky.
+# disagree on none of its 10 cases. Two disagreements would be strong
+# evidence that the pattern itself is wrong.
 QUOTAS = {
     (GROUP_NARRATIVE, "mimic-iii"): 8,
     (GROUP_NARRATIVE, "mimic-iv"): 7,
@@ -87,8 +87,8 @@ QUOTAS = {
     (GROUP_ACUTE_CHRONIC, "mimic-iv"): 5,
 }
 
-# Scored per rule, not per group: a percentage over 10 cases turns one
-# disagreement into a 10-point swing.
+# Scored per rule, with the groups pooled: a percentage over 10 cases would
+# turn one disagreement into a 10-point swing.
 MAX_DISAGREEMENTS = {
     "category": 3,  # over the 30 narrative and domain-organized cases pooled
     "acute_chronic": 1,  # over the 10 acute/chronic cases

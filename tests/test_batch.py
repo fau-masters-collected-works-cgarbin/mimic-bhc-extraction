@@ -68,7 +68,7 @@ class TestMimic3Format:
 
         hadm_100_results = [r for r in results if r.hadm_id == 100]
         assert len(hadm_100_results) == 1
-        # Should be from the longer note (row_id 1 with "pneumonia"), not the addendum (row_id 4)
+        # row_id 1 is the longer note (with "pneumonia"). row_id 4 is the addendum.
         assert hadm_100_results[0].row_id == "1"
         assert "pneumonia" in hadm_100_results[0].bhc_text.lower()
 
@@ -91,7 +91,7 @@ class TestMimic4Format:
         assert hadm_ids == {100, 200}
 
     def test_string_note_ids_mimic4(self, mimic4_discharge_gz):
-        """MIMIC-IV note IDs are strings, not integers."""
+        """MIMIC-IV note IDs are alphanumeric strings that cannot be cast to int."""
         results = extract_from_file(str(mimic4_discharge_gz), format_hint="mimic4")
 
         hadm_100 = next(r for r in results if r.hadm_id == 100)
@@ -173,7 +173,7 @@ class TestSamplingOption:
         assert len(results) == 3
 
     def test_sample_counts_admissions_not_rows(self, tmp_path):
-        """--sample N should sample N admissions, not N rows.
+        """--sample N samples N admissions.
 
         With addendums (multiple rows per admission), row-level sampling
         could return fewer admissions than requested.
@@ -212,7 +212,7 @@ class TestNoteTextAndAddendumCount:
             assert r.note_text is None
 
     def test_note_text_included_when_requested(self, mimic3_noteevents_gz):
-        """note_text should contain the full note when include_note_text=True."""
+        """note_text should be populated when include_note_text=True."""
         results = extract_from_file(
             str(mimic3_noteevents_gz), format_hint="mimic3", include_note_text=True
         )
@@ -227,7 +227,7 @@ class TestNoteTextAndAddendumCount:
             assert r.note_row_count == 1
 
     def test_note_row_count_multiple_rows(self, mimic3_noteevents_gz):
-        """MIMIC-III admissions with addendums should have note_row_count > 1."""
+        """MIMIC-III admissions with addendums count every row of the note."""
         results = extract_from_file(str(mimic3_noteevents_gz), format_hint="mimic3")
         hadm_100 = next(r for r in results if r.hadm_id == 100)
         # hadm_id 100 has 2 rows (original + addendum)

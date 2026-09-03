@@ -1,4 +1,4 @@
-"""BHC organizational structure classification (3-category taxonomy).
+"""BHC organizational structure classification.
 
 Classifies BHC sections into three categories based on observable
 structural features:
@@ -90,7 +90,7 @@ def _has_nicu_specific_domain(bhc_text: str) -> bool:
 # a line that starts a new clinical-domain section.
 #
 # The patterns feed a count compared against a threshold, so dropping one
-# reclassifies admissions as narrative rather than merely losing a match.
+# can flip an admission from domain_organized to narrative.
 # scripts/ablate_structure_rules.py reports how many change category when
 # one is dropped. Run it before deleting a pattern that looks redundant.
 
@@ -124,12 +124,10 @@ _NUM_CLOSEPAREN_RE = re.compile(r"^[ \t]*\d+\)[ \t]*[A-Za-z]", re.MULTILINE)
 
 # Clinical-domain headers with no prefix marker, opening a line with the
 # domain's text after the colon: "Neuro: Head CT negative",
-# "Cardiovascular: ...". A capitalized phrase of at most 41 characters,
-# a colon, then a space or tab. That trailing space is required, so a
-# bare "Neuro:" ending the line does not match.
-# These report as the "standalone" convention, where standalone means
-# unprefixed, not alone on the line.
-# The only pattern needing the discharge-header exclusion below.
+# "Cardiovascular: ...". The trailing space is required, so a bare
+# "Neuro:" ending the line does not match.
+# These report as the "standalone" numbering convention, meaning the
+# header has no prefix marker.
 _UNPREFIXED_HEADER_RE = re.compile(
     r"^[ \t]*[A-Z][A-Za-z /\-]{1,40}:[ \t]",
     re.MULTILINE,
@@ -142,10 +140,10 @@ _ASTERISK_ENTRY_RE = re.compile(
     re.MULTILINE,
 )
 
-# Minimum labeled sections to classify as domain-organized (Category B).
+# Minimum labeled sections to classify as domain-organized.
 # A single labeled section could be a false positive (e.g., one header-like
 # line in an otherwise narrative BHC). Two or more is a strong signal of
-# intentional domain-based organization.
+# domain-based organization.
 _MIN_DOMAIN_SECTIONS = 2
 
 # Discharge-summary section headers that may appear inside extracted BHC text
@@ -168,8 +166,7 @@ _DISCHARGE_HEADER_RE = re.compile(
 
 def _is_discharge_header(bhc_text: str, match_start: int) -> bool:
     """Check if an unprefixed header match is actually a discharge-summary section header."""
-    # Find the full line containing this match. We locate the true line start
-    # rather than trusting match_start to be at column 0.
+    # match_start may sit mid-line, so find the line by its surrounding newlines.
     line_start = bhc_text.rfind("\n", 0, match_start) + 1
     line_end = bhc_text.find("\n", match_start)
     if line_end == -1:
@@ -269,7 +266,7 @@ _ACUTE_CHRONIC_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
-# Transitional issues: must appear as a header on its own line, not mid-sentence.
+# Transitional issues: must appear as a header on its own line.
 # Matches: "Transitional Issues:", "TRANSITIONAL CARE ISSUES:", "Transitions:",
 # "#Transitions:", etc.
 _TRANSITIONAL_RE = re.compile(
@@ -296,7 +293,7 @@ def _has_transitional_issues(bhc_text: str) -> bool:
 class StructureResult:
     """Result of classifying a BHC's organizational structure."""
 
-    category: str  # "narrative", "domain_organized", or "standardized_template"
+    category: str
     numbering_convention: str | None = None  # Only for domain_organized
     modifiers: tuple[str, ...] = ()
     nicu_domain_count: int = 0  # For standardized_template diagnostics

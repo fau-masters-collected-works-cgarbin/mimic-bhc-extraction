@@ -315,9 +315,9 @@ def load_note_category_availability(path: str, hadm_ids: set[int]) -> pd.DataFra
 def load_per_admission_note_volume(path: str, hadm_ids: set[int]) -> pd.DataFrame:
     """Load per-admission note count and total characters, excluding discharge summaries.
 
-    The discharge summary is excluded because the BHC is part of it: it
-    is the generation target, not source content. Admissions whose only
-    note is the discharge summary do not appear in the returned frame.
+    The discharge summary is excluded because the BHC is generated from it.
+    Counting it as source note volume would be circular. Admissions whose
+    only note is the discharge summary do not appear in the returned frame.
     """
     query = """
         SELECT
@@ -401,7 +401,7 @@ def _build_admission_frame(
     df = base.join(admissions, how="left").join(note_categories, how="left")
     df = df.join(note_volume, how="left")
     # Admissions whose only note is the discharge summary have no row in
-    # note_volume. Treat them as zero, not NaN.
+    # note_volume.
     df["note_count"] = df["note_count"].fillna(0).astype(int)
     df["note_chars"] = df["note_chars"].fillna(0).astype(int)
     if icu_dbsource is not None:
@@ -669,8 +669,6 @@ def discover_mimic3_paths(mimic_dir: str | Path) -> dict[str, str | None]:
     """Locate ADMISSIONS, NOTEEVENTS, and ICUSTAYS inside a MIMIC-III root dir.
 
     Looks for .csv.gz, .csv, and .parquet, in that order. Missing files map to None.
-    Used by the CLI to translate ``--mimic-dir`` into the individual paths
-    that ``compute_population_stats`` requires.
     """
     base = Path(mimic_dir)
     found: dict[str, str | None] = {}

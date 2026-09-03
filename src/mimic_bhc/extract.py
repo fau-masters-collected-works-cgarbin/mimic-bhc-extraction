@@ -1,7 +1,6 @@
 """Single-note BHC extraction.
 
-The extract_bhc() function is the sole extraction entry point. It uses
-patterns from mimic_bhc.patterns and returns a BHCResult from mimic_bhc.model.
+The extract_bhc() function is the sole extraction entry point.
 Design rationale documented in docs/extraction-design.md.
 """
 
@@ -44,7 +43,6 @@ def extract_bhc(note_text: str) -> BHCResult:
     body_start = header_match.end()
     remaining = note_text[body_start:]
 
-    # Search for the first end-boundary in the remaining text.
     end_match = END_BOUNDARY_RE.search(remaining)
     if end_match is not None:
         raw_text = remaining[: end_match.start()]
@@ -65,7 +63,6 @@ def extract_bhc(note_text: str) -> BHCResult:
             failure_reason="empty_section",
         )
 
-    # Compute offsets of the stripped BHC text within the original note.
     lstrip_offset = len(raw_text) - len(raw_text.lstrip())
     bhc_start_offset = body_start + lstrip_offset
     bhc_end_offset = bhc_start_offset + len(bhc_text)

@@ -304,7 +304,7 @@ class TestCategoryC:
         assert result.category == CATEGORY_STANDARDIZED_TEMPLATE
 
     def test_nicu_below_threshold(self):
-        """3 NICU domains is below threshold, should be B not C."""
+        """3 NICU domains is below the standardized-template threshold."""
         three_domains = """\
 Respiratory: Room air.
 
@@ -316,7 +316,7 @@ Neurology: Normal exam.
         assert result.category != CATEGORY_STANDARDIZED_TEMPLATE
 
     def test_nicu_domains_without_specific_marker(self):
-        """4+ NICU domains but no Sensory/Psychosocial should be B, not C.
+        """4+ NICU domains without Sensory or Psychosocial classify as domain-organized.
 
         Regression test for cases like 134125 and 195087 where organ-system
         entries (Cardiovascular, Respiratory, etc.) matched NICU domains

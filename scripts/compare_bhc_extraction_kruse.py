@@ -48,11 +48,11 @@ _CAUSE_ORDER = "both markers present, end precedes start"
 # Behavior: returns the text between the first matching start header and
 # the first matching end header. Returns empty string if either is missing.
 #
-# Known limitation (present in the original code): the end-header search
-# starts from position 0, not from after the start match. If an end header
-# appears before the BHC start header, the extraction is incorrect. Kept as
-# it is, so the comparison measures their extractor. The report counts how
-# often it fires, as _CAUSE_ORDER.
+# Known limitation in the original code: the end-header search scans from
+# position 0, so an end header sitting before the BHC start header still
+# matches and the extraction comes out wrong. Kept as is, so the comparison
+# measures Kruse's actual extractor. The report counts how often this fires,
+# as _CAUSE_ORDER.
 _KRUSE_START_RE = re.compile(r"(Brief Hospital Course:|HOSPITAL COURSE:)")
 _KRUSE_END_RE = re.compile(
     r"(Discharge Medications:|DISCHARGE STATUS:|Medications on Admission:"

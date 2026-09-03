@@ -2,7 +2,7 @@
 
 Diagnostic utilities for exploring what section headers appear in discharge
 notes and how they relate to the BHC extraction patterns. They support
-pattern development and validation, not extraction itself.
+pattern development and validation.
 
 - ``discover_headers_from_file``: loads a MIMIC CSV/parquet file, samples
   notes, and returns a frequency table.

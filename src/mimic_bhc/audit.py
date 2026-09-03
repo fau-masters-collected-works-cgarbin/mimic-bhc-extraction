@@ -29,10 +29,9 @@ def build_audit_entries(
     *,
     spot_check_seed: int = 42,
 ) -> list[dict[str, Any]]:
-    """Build audit entries from extraction results.
+    """Build one audit entry per extraction result.
 
-    Each entry contains extraction metadata, review flags, and empty fields
-    for a human reviewer to fill in.
+    Review-status fields are left empty for a human reviewer to fill in.
     """
     now = datetime.now(tz=UTC).isoformat()
 

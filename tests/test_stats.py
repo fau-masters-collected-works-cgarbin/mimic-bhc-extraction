@@ -21,7 +21,6 @@ def _make_bhc_result(
     failure_reason: str | None = None,
     category: str = "narrative",
 ) -> BHCResult:
-    """Build a BHCResult for stats tests."""
     structure = StructureResult(category=category) if success else None
     return BHCResult(
         extraction_success=success,

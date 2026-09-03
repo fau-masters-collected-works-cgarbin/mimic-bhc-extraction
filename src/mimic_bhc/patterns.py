@@ -15,14 +15,8 @@ import re
 # ---------------------------------------------------------------------------
 # Header patterns (case-insensitive)
 # ---------------------------------------------------------------------------
-# Ordered from most specific to least specific so the match reports the best
-# variant. Optional colon, optional trailing whitespace.
-#
-# Uses [ \t] instead of \s to avoid matching across line breaks. A line
-# ending with "hospital" and the next starting with "course" should not be
-# treated as a header. Without an end-of-line anchor, headers with inline
-# text ("HOSPITAL COURSE: The patient was...") still match. The ^
-# anchor prevents mid-sentence false positives.
+# Uses [ \t] instead of \s so a line ending with "hospital" and the next
+# starting with "course" is not treated as one header.
 # Common prefix: optional "concise/brief summary of" or "history of"
 _SUMMARY_PREFIX = r"(?:(?:(?:concise|brief)[ \t]+)?summary[ \t]+of[ \t]+)?"
 _HISTORY_PREFIX = r"(?:history[ \t]+of[ \t]+)?"
@@ -37,6 +31,7 @@ _BHC_HEADER_PATTERNS: list[str] = [
 ]
 
 # Combined regex used only for classification (is this line a BHC header?).
+# The ^ anchor is what keeps these patterns from matching mid-sentence.
 _BHC_HEADER_RE = re.compile(
     r"^[ \t]*(?:" + "|".join(_BHC_HEADER_PATTERNS) + r")[ \t]*:?[ \t]*",
     re.IGNORECASE | re.MULTILINE,

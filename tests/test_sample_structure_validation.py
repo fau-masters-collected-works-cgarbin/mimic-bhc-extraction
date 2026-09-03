@@ -1,8 +1,8 @@
 """Tests for the validation-sample draw in scripts/sample_structure_validation.py.
 
-A defect here invalidates the validation rather than degrading it. These tests
-cover the group a case is assigned to, the exclusion list, and reproducing the
-draw from the recorded seed.
+A defect here invalidates the validation. These tests cover the group a case
+is assigned to, the exclusion list, and reproducing the draw from the recorded
+seed.
 """
 
 import sample_structure_validation as sample
@@ -120,7 +120,6 @@ class TestDraw:
 
 class TestThresholds:
     def test_each_rule_is_scored_over_the_cases_its_limit_assumes(self):
-        """MAX_DISAGREEMENTS is set for 30 category cases and 10 acuity ones."""
         pooled = {"category": 0, "acute_chronic": 0}
         for (group, _), quota in sample.QUOTAS.items():
             rule = "acute_chronic" if group == sample.GROUP_ACUTE_CHRONIC else "category"
