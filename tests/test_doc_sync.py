@@ -53,6 +53,24 @@ class TestDesignDocMatchesCode:
             f"Doc claims {documented} end boundaries, code has {len(_END_BOUNDARIES)}"
         )
 
+    def test_end_boundary_names(self):
+        """Doc's end-boundary table lists the same names as _END_BOUNDARIES."""
+        rows = re.findall(r"^\| (?:High|Medium) \| (.+?) \|$", _design_doc_text(), re.MULTILINE)
+        documented = [r.strip() for r in rows]
+        code = [label for label, _ in _END_BOUNDARIES]
+        # The doc writes one label for the pattern that matches both spellings.
+        code = ["Discharge Diagnosis/Diagnoses" if c == "Discharge Diagnosis" else c for c in code]
+        assert documented == code, f"Doc lists {documented}, code has {code}"
+
+    def test_success_rates_match_empirical_findings(self):
+        """The rates quoted here also appear in docs/empirical-findings.md."""
+        quoted = set(re.findall(r"(\d{2}\.\d)%", _design_doc_text()))
+        findings = (_REPO_ROOT / "docs" / "empirical-findings.md").read_text()
+        missing = {r for r in quoted if f"{r}%" not in findings}
+        assert not missing, (
+            f"Rates in extraction-design.md absent from empirical-findings.md: {missing}"
+        )
+
     def test_min_bhc_length_threshold(self):
         """Doc says 'shorter than N characters'."""
         text = _design_doc_text()

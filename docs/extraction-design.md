@@ -10,7 +10,7 @@ The Brief Hospital Course (BHC) is typically the longest and most clinically den
 
 ## BHCResult as the single data structure
 
-`BHCResult` is the canonical representation of a BHC extraction throughout the codebase. Every function that produces, transforms, or serializes extraction data works with `BHCResult` directly rather than building parallel dicts or DataFrames with ad-hoc field names.
+`BHCResult` is the canonical representation of a BHC extraction throughout the codebase. Every function that produces, transforms, or serializes extraction data works with `BHCResult` directly.
 
 `BHCResult` fields are populated in layers. Each layer fills in the fields it owns and passes the result forward using `dataclasses.replace()`:
 
@@ -20,7 +20,7 @@ The Brief Hospital Course (BHC) is typically the longest and most clinically den
 
 3. **Serialization layer** (`BHCResult.to_dict()` in `mimic_bhc/model.py`). Converts the dataclass to a dict for JSON/JSONL output. This is the only place where field names are mapped to their output representation. No other code constructs output dicts from `BHCResult` fields manually. `BHCResult.from_dict()` reverses the mapping for loading JSON back into objects.
 
-Derived properties (character count, word count) are computed from the extracted text on access as `@property` methods, not stored as separate fields.
+Derived properties (character count, word count) are `@property` methods, computed from the extracted text on access.
 
 The design rule: if you need a new field on the extraction output, add it to `BHCResult` and populate it in the appropriate layer. Do not create parallel representations.
 
@@ -32,7 +32,7 @@ The design rule: if you need a new field on the extraction output, add it to `BH
 
 **Phase 2: End-boundary search.** Starting from the text after the header, the extractor searches for the first line that matches a known end-boundary pattern (a top-level discharge summary section that comes after the BHC). If a boundary is found, the BHC is the text between the header and the boundary. If no boundary is found, the BHC extends to the end of the note (flagged as "unbounded" in the output metadata). If the region between header and boundary is empty, extraction fails with reason `empty_section`.
 
-This approach relies on the semi-structured format of MIMIC discharge summaries rather than attempting ML-based section classification. Notes with non-standard structure fail extraction with a labeled reason, which lets consumers analyze failure modes systematically.
+This approach relies on the semi-structured format of MIMIC discharge summaries. Notes with non-standard structure fail extraction with a labeled reason, which lets consumers analyze failure modes systematically.
 
 ## Header patterns
 
@@ -51,19 +51,35 @@ All patterns are anchored to the start of the line (`^` with `re.MULTILINE`) to 
 
 15 patterns identify top-level discharge summary sections that follow the BHC. These are organized into two confidence tiers:
 
-**High confidence** (unambiguous as section headers): Medications on Admission, Medications on Discharge, Discharge Medications, Discharge Condition, Condition on Discharge, Discharge Diagnosis/Diagnoses, Discharge Instructions, Discharge Disposition, Discharge Status, Discharge Diet, Followup Instructions, Follow-up Instructions.
+| Confidence | Boundary |
+|------------|----------|
+| High | Medications on Admission |
+| High | Medications on Discharge |
+| High | Discharge Medications |
+| High | Discharge Condition |
+| High | Condition on Discharge |
+| High | Discharge Diagnosis/Diagnoses |
+| High | Discharge Instructions |
+| High | Discharge Disposition |
+| High | Discharge Status |
+| High | Discharge Diet |
+| High | Followup Instructions |
+| High | Follow-up Instructions |
+| Medium | Facility |
+| Medium | Completed by |
+| Medium | Attending |
 
-**Medium confidence** (legitimate sections, but words like "Facility" or "Attending" could appear within a BHC narrative): Facility, Completed by, Attending. The start-of-line anchor mitigates false positives.
+High-confidence boundaries are unambiguous as section headers. The medium-confidence three are legitimate sections whose words ("Facility", "Attending") could also appear within a BHC narrative. The start-of-line anchor mitigates that. `tests/test_doc_sync.py` checks this table against `_END_BOUNDARIES`.
 
 The boundary list excludes BHC-internal sub-headers like "Cardiovascular:", "Renal:", or "Infectious Disease:". These appear inside domain-organized BHCs and must not terminate extraction.
 
-It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, these are discharge planning rather than hospital course narrative, but clinicians type this content into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The released MIMIC-IV-Ext-BHC data retains this content in its BHC field, though Aali et al. (2025) do not document it as a design choice.
+It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, this content is discharge planning, but clinicians type it into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The released MIMIC-IV-Ext-BHC data retains this content in its BHC field, though Aali et al. (2025) do not document it as a design choice.
 
 The boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
 
 ## Addendum deduplication
 
-MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`hadm_id`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`. The rest are addendum duplicates.
+MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`HADM_ID`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`. The rest are addendum duplicates.
 
 The batch module (`extract_from_file` / CLI) handles deduplication automatically: it extracts all notes for each admission, then keeps the one with the longest BHC text, on the rationale that the longest version is the most complete. MIMIC-IV-Note does not have this issue (one row per admission).
 
@@ -79,15 +95,15 @@ These flags are informational. The extractor does not filter based on them. Cons
 
 ## Structure classification
 
-After extraction, the batch module classifies each BHC's organizational structure into three categories. Classification is implemented in `mimic_bhc/structure.py` and runs independently of the extraction step (it takes the extracted BHC text as input, not the original note).
+After extraction, the batch module classifies each BHC's organizational structure into three categories. Classification is implemented in `mimic_bhc/structure.py` and runs independently of the extraction step (it takes the extracted BHC text as input).
 
 ### Three-category taxonomy
 
-**Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events are connected by temporal sequence rather than grouped by clinical domain. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD numbering are typical examples.
+**Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events follow the temporal sequence in which they happened. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD (post-operative day) numbering are typical examples.
 
 **Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as # prefixed headers, numbered entries, or unprefixed headers that open a line and are followed by the domain's text. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
 
-**Standardized template.** The BHC follows a fixed template with standardized section names applied to every patient regardless of clinical presentation (e.g., NICU assessment domains: Respiratory, Cardiovascular, FEN, GI, Hematology, ID, Neurology, Sensory, Psychosocial). Present only in MIMIC-III (no neonatal admissions in MIMIC-IV).
+**Standardized template.** The BHC follows a fixed template with standardized section names applied to every patient regardless of clinical presentation (e.g., NICU assessment domains: Respiratory, Cardiovascular, FEN (fluids, electrolytes, nutrition), GI (gastrointestinal), Hematology, ID (infectious disease), Neurology, Sensory, Psychosocial). Present only in MIMIC-III (no neonatal admissions in MIMIC-IV).
 
 See [Empirical Findings](empirical-findings.md#structure-classification-distribution) for how the three categories are distributed across the two datasets.
 
@@ -97,7 +113,7 @@ See [Empirical Findings](empirical-findings.md#structure-classification-distribu
 
 The 40 cases cover two rules and are scored separately: 30 cases for the category rule, which accepts up to 3 disagreements, and 10 for the acute/chronic rule, which accepts 1.
 
-The coding rules give the coder two labels, narrative and domain-organized, and tell them to code a neonatal template as domain-organized. The hand-coding therefore validates the boundary between narrative and domain-organized, not the standardized template category.
+The coding rules give the coder two labels, narrative and domain-organized, and tell them to code a neonatal template as domain-organized. The hand-coding therefore validates only the boundary between narrative and domain-organized.
 
 `scripts/sample_structure_validation.py` draws the sample and writes the coding sheet and the answer key.
 
@@ -105,32 +121,32 @@ The coding rules give the coder two labels, narrative and domain-organized, and 
 
 The classifier emits two modifiers alongside the category:
 
-- **Acute/chronic partition**: a standalone header labeling a group of problems acute, active, chronic, stable, or inactive.
+- **Acute/chronic partition**: a header on its own line labeling a group of problems acute, active, chronic, stable, or inactive.
 - **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
 
-It also records a numbering convention for domain-organized BHCs: `#`, `##`, `N.`, `N)`, `(N)`, `N/`, `*`, `standalone`, or `mixed`. `standalone` means the header carries no prefix marker, not that it sits alone on its line. That is a field on the result rather than a modifier, and nothing reads it.
+It also records a numbering convention for domain-organized BHCs: `#`, `##`, `N.`, `N)`, `(N)`, `N/`, `*`, `standalone`, or `mixed`. `standalone` means the header has no prefix marker. That is a field on the result, and nothing reads it.
 
 The Transitional Issues modifier tracks the handoff content that the end-boundary allowlist passes through (see [End-boundary patterns](#end-boundary-patterns)).
 
 ### Provenance of the format distinction
 
-The domain-organized format traces its lineage to the problem-oriented medical record (POMR). Weed introduced it in 1964 and popularized it in his 1968 NEJM article. The POMR organizes clinical documentation around a numbered problem list and files each progress note under a numbered problem, recording the patient's subjective account, the objective data, the current treatment, any new interpretations, and the plan for the next interval (Weed, 1968). Later work codified that note structure as SOAP. Weed's paper is among the most cited in clinical informatics, and the problem list and the SOAP-format progress note are now described as ubiquitous (Wright et al., 2014). When clinicians write a domain-organized BHC, they are applying the same organizational principle, grouping by clinical problem rather than following the temporal sequence of events.
+The domain-organized format traces its lineage to the problem-oriented medical record (POMR). Weed introduced it in 1964 and popularized it in his 1968 NEJM article. The POMR organizes clinical documentation around a numbered problem list. Each progress note is filed under a numbered problem, recording the patient's subjective account, the objective data, the current treatment, and the plan for the next interval (Weed, 1968). Later work replaced the treatment element with an assessment and codified the result as SOAP. Weed's paper is among the most cited in clinical informatics, and the problem list and the SOAP-format progress note are now described as ubiquitous (Wright et al., 2014). When clinicians write a domain-organized BHC, they group information by clinical problem, the same principle the POMR applies to progress notes.
 
 Hospital medicine literature treats problem-based organization of the hospital course as a template choice. Smith et al. (2017) report a discharge summary redesign that eliminated the stand-alone diagnosis list and incorporated it "as part of the problem-based hospital course," and they score "problem-based hospital course" as one of 24 discharge summary quality elements. Dean et al. (2016), standardizing discharge summaries hospitalwide at a different institution, keep diagnoses and hospital course as separate template elements.
 
 We found no published work that names the narrative format as a category or contrasts it with the problem-based one. The narrative category here comes from the corpus.
 
-Adams et al. (2021) observe that most BHCs are "written in a problem-oriented fashion (Weed, 1968)," but treat the observation as a corpus characteristic rather than a variable: they do not categorize the variation, label it, or condition on it. Other BHC summarization work (Xu et al., 2024) treats the BHC as an atomic text block.
+Adams et al. (2021) observe that most BHCs are "written in a problem-oriented fashion (Weed, 1968)," but treat the observation as a corpus characteristic: they do not categorize the variation, label it, or condition on it. Other BHC summarization work (Xu et al., 2024) treats the BHC as an atomic text block.
 
 ### Why format matters for BHC generation
 
 The format distinction is significant for BHC generation, the task this extraction supports. A model generating a narrative BHC needs to produce continuous prose. A model generating a domain-organized BHC needs to organize information by clinical problem, create appropriate sub-headers, and summarize each system separately. These are structurally different outputs from the same input data, with two practical consequences:
 
-1. **Evaluation.** Metrics like ROUGE and BERTScore assume a single reference text. A narrative and a domain-organized BHC for the same admission could both be clinically correct yet score poorly against each other because of the structural difference. Domain-organized BHCs are roughly twice as long as narratives, creating additional length mismatch. The format choice is a legitimate stylistic variation, not an error, and evaluation should be stratified by format category.
+1. **Evaluation.** Metrics like ROUGE and BERTScore assume a single reference text. A narrative and a domain-organized BHC for the same admission could both be clinically correct yet score poorly against each other because of the structural difference. Domain-organized BHCs are roughly twice as long as narratives, creating additional length mismatch. The format choice is a legitimate stylistic variation. Evaluation should be stratified by format category.
 
 2. **Training signal.** If training or fine-tuning on MIMIC BHCs, the model sees both formats mixed together with no label distinguishing them. This could lead to inconsistent output format, or the model might default to the majority format (domain-organized). Including the target format category in the generation prompt tells the model which organizational structure to follow.
 
-## Format auto-detection
+## Dataset format auto-detection
 
 The batch module auto-detects whether the input file is MIMIC-III or MIMIC-IV by checking the CSV header row for the presence of a `CATEGORY` column (present in MIMIC-III's NOTEEVENTS, absent in MIMIC-IV-Note's discharge table). Column names are normalized to lowercase internally. This can be overridden with the `--format` CLI flag.
 
@@ -142,11 +158,11 @@ The header and end-boundary pattern lists were not written in one pass. They evo
 
 **Step 2: Code review of existing tools.** The Stanford clin-bhc-summ codebase (`utils/mimic_iv_bhc_preprocessing.py`) revealed 4 hardcoded header variants stripped via `.replace()` and a 19-header section list. Kruse et al.'s evaluation code (`evaluate_ds.py`) used 2 literal start patterns and 6 literal end patterns. Both tools informed pattern coverage but also revealed gaps: Stanford's patterns were case-sensitive, Kruse's were unanchored and missed common variants.
 
-The clin-sum codebase behind Adams et al. (2021) publishes the extraction used to build their dataset (`preprocess/section_utils.py`, `extract_hospital_course()`). It inverts our approach, detecting headers generically and selecting them by substring rather than enumerating variants. See the [detailed comparison](empirical-findings.md#comparison-with-adams-et-al-clin-sum) in empirical findings.
+The clin-sum codebase behind Adams et al. (2021) publishes the extraction used to build their dataset (`preprocess/section_utils.py`, `extract_hospital_course()`). It inverts our approach: it detects headers generically and selects them by substring. See the [detailed comparison](empirical-findings.md#comparison-with-adams-et-al-clin-sum) in empirical findings.
 
 **Step 3: Empirical discovery.** The `discover` CLI command (`mimic-bhc-extract discover --input NOTEEVENTS.csv.gz`) samples discharge notes and scans for any line that looks like a section header (capitalized words on their own line). It returns each header with a frequency count and a role label ("BHC header", "End boundary", or "Other" based on the current pattern lists). The same logic is available programmatically via `discover_headers_from_file()` (takes a file path) or `discover_headers_in_texts()` (takes note strings directly) in `mimic_bhc/discovery.py`.
 
-Running this on MIMIC-III samples surfaced header variants not in the literature:
+Running this on MIMIC-III samples found header variants not in the literature:
 
 - "Summary of Hospital Course", "Concise Summary of Hospital Course", "History of Hospital Course" (prefix variants)
 - "NICU Course" (neonatal ICU discharge summaries)
@@ -154,22 +170,24 @@ Running this on MIMIC-III samples surfaced header variants not in the literature
 
 It also confirmed which discharge-summary sections reliably follow the BHC and which do not.
 
-We evaluated each candidate on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as standalone headers but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
+We evaluated each candidate on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as headers on their own line but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
 
-**Step 4: Comparative validation.** We ran our extractor and Kruse et al.'s over the same MIMIC-III notes. The two agree on most cases, and our broader patterns capture thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical Findings](empirical-findings.md) for the full comparison.
+**Step 4: Comparative validation.** We ran our extractor and Kruse et al.'s over the same MIMIC-III notes. The two agree on most cases. Our broader patterns capture thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical Findings](empirical-findings.md) for the full comparison.
 
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
 This loop (seed from literature, discover empirically, validate against published numbers, investigate gaps) is the process for extending or modifying the pattern lists. For extraction results on MIMIC-III and MIMIC-IV, header and boundary frequency tables, comparisons with published tools (Stanford's clin-bhc-summ, Kruse et al.), and known limitations, see [Empirical Findings](empirical-findings.md).
 
-## Why regex, not existing tools
+## Choosing regex over existing tools
 
 Two open-source tools are packaged for reuse on MIMIC clinical notes:
 
-- **plandes/mimicsid** (Landes et al., COLING 2022): Full ML pipeline with trained section classifiers, SpaCy dependency, and model downloads. Designed for general section identification across all note types, not lightweight single-section extraction.
+- **plandes/mimicsid** (Landes et al., COLING 2022): Full ML pipeline with trained section classifiers, SpaCy dependency, and model downloads. Designed for general section identification across all note types.
 - **StanfordMIMI/clin-bhc-summ** (Aali et al., JAMIA 2025): Evaluation framework for clinical summarization. Extracts BHC as part of a larger pipeline but is not a reusable extraction library. See the [detailed comparison](empirical-findings.md#comparison-with-aali-et-al-clin-bhc-summ) in empirical findings.
 
-We use a regex-based approach instead for two reasons. First, we need structured extraction metadata (success/failure reason, matched header variant, matched end boundary) to understand extraction reliability systematically, not just the extracted text. Neither tool provides this. Second, a simple regex extractor handles the task reliably (97.0% MIMIC-III, 88.4% MIMIC-IV), so pulling in an ML pipeline would add unnecessary complexity. The one direct check is against Kruse et al.: run over the same MIMIC-III notes, our extractor succeeds on 97.0% and theirs on 85.1%. Aali et al.'s 81.4% counts what survives their full pipeline, not extraction alone.
+We use a regex-based approach instead for two reasons. First, understanding extraction reliability systematically requires structured extraction metadata (success/failure reason, matched header variant, matched end boundary) alongside the extracted text. Neither tool provides this. Second, a simple regex extractor handles the task reliably (97.0% MIMIC-III, 88.4% MIMIC-IV), so pulling in an ML pipeline would add unnecessary complexity.
+
+The one direct check is against Kruse et al.: run over the same MIMIC-III notes, our extractor succeeds on 97.0% and theirs on 85.1%. Aali et al.'s 81.4% counts what survives their full pipeline. These rates are checked against [Empirical Findings](empirical-findings.md) by `tests/test_doc_sync.py`.
 
 ## Updating documentation metrics
 
@@ -177,7 +195,7 @@ The documentation contains two kinds of numeric claims, each with a different up
 
 ### Code-derived metrics (automated)
 
-Claims about pattern counts and thresholds are verified by `tests/test_doc_sync.py`. These tests parse the prose in this document and `docs/bhc-format-coding-rules.md`, extract the claimed values, and compare them against the corresponding code constants. The coding-rules tests go further and run the classifier on every worked example in that document, so an example the classifier reads differently fails the build. If you change a pattern list or a threshold, the tests will fail until the documentation is updated to match (or vice versa).
+Claims about pattern counts, thresholds, and end-boundary names are verified by `tests/test_doc_sync.py`. These tests parse the prose and tables in this document and `docs/bhc-format-coding-rules.md`, extract the claimed values, and compare them against the corresponding code constants. One test also checks that every success rate quoted in this document appears in `docs/empirical-findings.md`. The coding-rules tests go further and run the classifier on every worked example in that document, so an example the classifier reads differently fails the build. If you change a pattern list or a threshold, the tests will fail until the documentation is updated to match (or vice versa).
 
 Run `uv run pytest tests/test_doc_sync.py -v` to see which claims are covered. The test names and docstrings describe each verified claim.
 
@@ -219,7 +237,7 @@ uv run python scripts/compare_bhc_extraction_kruse.py \
 
 4. Update the tables in `docs/empirical-findings.md` with the new numbers. The header distribution tables list variants with count >= 100 individually and group the rest into "Other." The `stats` command's structure distribution supplies both the category prevalence table and the median length per format, so take both from the same run. Do not mix in figures from `scripts/bhc_format_stats.py`: it reports over the structure-eligible pool (extractions longer than 500 characters) and folds standardized templates into domain-organized, so its shares and medians will not match the `stats` output.
 
-5. Check two claims in [Structure classification](#structure-classification) against the new distribution: that domain-organized is the majority format in both datasets, and that standardized templates appear only in MIMIC-III. Neither is a number, so no test covers them.
+5. Check three claims in [Structure classification](#structure-classification) against the new distribution: that domain-organized is the majority format in both datasets, that standardized templates appear only in MIMIC-III, and that domain-organized BHCs run roughly twice as long as narrative ones. No test covers them.
 
 ## References
 
