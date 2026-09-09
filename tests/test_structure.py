@@ -10,7 +10,7 @@ from mimic_bhc.structure import (
 )
 
 # ---------------------------------------------------------------------------
-# Category A: Narrative
+# Narrative
 # ---------------------------------------------------------------------------
 
 NARRATIVE_SIMPLE = """\
@@ -55,7 +55,7 @@ class TestCategoryA:
 
 
 # ---------------------------------------------------------------------------
-# Category B: Domain-organized
+# Domain-organized
 # ---------------------------------------------------------------------------
 
 DOMAIN_HASH = """\
@@ -272,7 +272,7 @@ DISCHARGE MEDICATIONS: Amoxicillin 500mg three times daily.
 
 
 # ---------------------------------------------------------------------------
-# Category C: Standardized template
+# Standardized template
 # ---------------------------------------------------------------------------
 
 NICU_TEMPLATE = """\

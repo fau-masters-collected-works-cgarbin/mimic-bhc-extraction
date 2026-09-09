@@ -1,6 +1,6 @@
 # BHC format coding rules
 
-Rules for classifying a Brief Hospital Course by organizational format. `src/mimic_bhc/structure.py` implements the same rules in code, and comparing hand-coded cases against it is how `classify_bhc_structure()` is validated.
+Rules for classifying a Brief Hospital Course by organizational format. `src/mimic_bhc/structure.py` implements the same rules in code. Comparing hand-coded cases against it is how `classify_bhc_structure()` is validated.
 
 To use it: read a BHC, apply rule 1 and rule 2, and record the fields listed at the end. Do not read `structure.py` while coding, because you would copy its answers instead of applying the rules.
 
@@ -20,7 +20,7 @@ Assign **domain-organized** when the BHC divides its content into **two or more*
 
 Stop counting at two. Whether a third exists changes nothing.
 
-A labeled section is a line that opens a new topic and carries a visible marker. The markers in this corpus are:
+A labeled section is a line that opens a new topic and has a visible marker. The markers in this corpus are:
 
 - A hash prefix
 - A number, in any style
@@ -53,7 +53,7 @@ Discharge Condition: Stable.
 
 ## Rule 2: acute/chronic partition
 
-Present when the BHC carries **at least one** header labeling a group of problems by acuity. Five words do that labeling, and any one of them is enough:
+Present when the BHC has **at least one** header labeling a group of problems by acuity. Five words do that labeling. Any one of them is enough:
 
 - Acute
 - Active
@@ -61,7 +61,7 @@ Present when the BHC carries **at least one** header labeling a group of problem
 - Stable
 - Inactive
 
-The name of this rule is shorthand for that list. `ACTIVE ISSUES` counts, and so does `INACTIVE ISSUES`. Do not read the rule as acute against chronic only, which is the mistake the name invites.
+The name of this rule is shorthand for that list. `ACTIVE ISSUES` counts. So does `INACTIVE ISSUES`. Do not read the rule as acute against chronic only, which is the mistake the name invites.
 
 The header must stand on its own line, with nothing after it but an underline or bold marker. That is the reverse of rule 1's colon marker, which needs text on the same line. The same words inside a sentence count for neither rule.
 

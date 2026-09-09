@@ -167,7 +167,7 @@ def main():
         "--results-dir",
         required=True,
         type=Path,
-        help="Directory holding bhc_extraction_*.jsonl and bhc_structure_*.csv",
+        help="Directory containing bhc_extraction_*.jsonl and bhc_structure_*.csv",
     )
     args = parser.parse_args()
     report(*tally(args.results_dir.expanduser()))

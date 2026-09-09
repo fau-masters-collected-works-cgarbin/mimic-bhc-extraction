@@ -35,7 +35,8 @@ def build_audit_entries(
     """
     now = datetime.now(tz=UTC).isoformat()
 
-    # Count header and boundary frequencies for rarity detection.
+    # Counted once over all results, so every entry is flagged against the
+    # same frequencies.
     successful = [r for r in results if r.extraction_success]
     header_counts = Counter(r.start_header for r in successful if r.start_header)
     boundary_counts = Counter(r.end_header for r in successful if r.end_header)

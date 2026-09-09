@@ -11,7 +11,7 @@ Extract Brief Hospital Course (BHC) sections from MIMIC-III and MIMIC-IV dischar
   - **Narrative**: No labeled clinical sections.
   - **Domain-organized**: Sections labeled by clinical domain (organ system, problem, etc.).
   - **Standardized template**: NICU-style templates with fixed domain structure.
-- **Modifier Detection**: Identifies acute/chronic partitions and transitional care sections.
+- **Modifier Detection**: Identifies acute/chronic partitions and Transitional Issues sections.
 - **Format Support**: Works with both MIMIC-III (NOTEEVENTS) and MIMIC-IV discharge note formats.
 - **Quality Flags**: Includes metadata on extraction quality (short extractions, unbounded sections, MIMIC-III error-entered notes).
 - **CLI and Python API**: Use the [command-line tool](#command-line) for batch processing or import the library for [single-note extraction](#single-note-extraction) and [batch file processing](#batch-extraction).
@@ -37,7 +37,7 @@ Options:
 - `--sample`: Extract from random sample of N admissions (optional - all notes are extracted if not specified).
 - `--include-note-text`: Include the full original discharge note text in each output record (off by default to keep output size small).
 
-The extractor finds the BHC section using [header pattern matching](docs/extraction-design.md#header-patterns), determines where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output Format](#output-format) for the full schema.
+The extractor finds the BHC section using [header pattern matching](docs/extraction-design.md#header-patterns), determines where it ends using an [end-boundary allowlist](docs/extraction-design.md#end-boundary-patterns), and handles [addendum deduplication](docs/extraction-design.md#addendum-deduplication) (MIMIC-III). Each output record includes extraction metadata and [structure classification](docs/extraction-design.md#structure-classification). See [Output format](#output-format) for the full schema.
 
 All examples in this section use the MIMIC-III `NOTEEVENTS.csv.gz` file. The same commands work with MIMIC-IV-Note's `discharge.csv.gz` file. The extractor auto-detects the format.
 
@@ -121,7 +121,7 @@ Parameters:
 - `sample_size`: If set, extracts from a random sample of N admissions.
 - `include_note_text`: If `True`, includes the full original note text in each result (default: `False`).
 
-## Output Format
+## Output format
 
 By default, output is [JSON Lines](https://jsonlines.org/) (JSONL): one JSON object per line, one per admission. Use `--pretty` for a single pretty-printed JSON array.
 
@@ -153,9 +153,9 @@ Each record contains:
 
 Extraction fails (`extraction_success: false`) when no recognizable BHC header is found in the note (`failure_reason: "no_header"`) or when the region between the header and the end boundary is empty (`failure_reason: "empty_section"`). See [Two-phase extraction](docs/extraction-design.md#two-phase-extraction) for how the extractor determines success or failure.
 
-`iserror` is a MIMIC-III-specific quality flag that does not affect extraction success. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired. No discharge summary row sets ISERROR in v1.4, so the flag does not appear on that release. The extractor reads the column on every release regardless.
+`iserror` is a MIMIC-III-specific quality flag that does not affect extraction success. MIMIC-III's NOTEEVENTS table includes an ISERROR column that flags notes entered in error (e.g., filed to the wrong patient). The extractor still attempts extraction on these notes and can succeed if they contain recognizable headers and content. The `iserror` flag is included in `quality_flags` so consumers can filter them out if desired. No discharge summary row has ISERROR set in v1.4, so the flag does not appear on that release. The extractor reads the column on every release regardless.
 
-## Supporting Tools
+## Supporting tools
 
 ### Extraction statistics
 
@@ -268,7 +268,7 @@ uv run python scripts/sample_structure_validation.py \
     --out-dir ../phd-dissertation-experiment-results/bhc_structure_validation
 ```
 
-## MIMIC Format Support
+## MIMIC format support
 
 ### MIMIC-III
 
@@ -282,11 +282,13 @@ uv run python scripts/sample_structure_validation.py \
 - No filtering needed (discharge table contains only discharge summaries).
 - One row per admission.
 
-## Design Principles
+## Design principles
 
 - **No filtering**: All records appear in output with metadata (including failed extractions). Consumers decide what to filter.
-- **Single data structure**: `BHCResult` is the canonical representation throughout, from extraction through serialization. See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for how it gets populated in layers.
-- **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch module adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB is used internally for efficient file loading but is not exposed to consumers.
+- **Single data structure**: `BHCResult` is the only representation used throughout, from extraction through serialization. See [BHCResult as the single data structure](docs/extraction-design.md#bhcresult-as-the-single-data-structure) for how it gets populated in layers.
+- **Core logic is reusable**: `extract_bhc()` and `classify_bhc_structure()` depend only on the standard library and operate on a single note string. The batch module adds MIMIC-specific concerns (file loading, discharge summary filtering, addendum deduplication) on top. DuckDB loads the files internally and stays out of the public API.
+
+## Documentation
 
 - [docs/extraction-design.md](docs/extraction-design.md): the extraction algorithm, pattern design, and deduplication logic.
 - [docs/empirical-findings.md](docs/empirical-findings.md): extraction results on MIMIC-III and MIMIC-IV, tool comparisons, and known limitations.
@@ -345,6 +347,6 @@ These run automatically on commit via pre-commit hooks, but can be run manually 
 
 If you change extraction patterns, boundary logic, or structure classification, the empirical results in `docs/empirical-findings.md` may be stale. Re-run the extraction on MIMIC-III and MIMIC-IV and update the documented numbers. See [Updating documentation metrics](docs/extraction-design.md#updating-documentation-metrics) for the steps.
 
-## AI Disclosure
+## AI disclosure
 
 I used a coding agent (Claude Code with Opus) in this work. I reviewed its output and am responsible for the result.

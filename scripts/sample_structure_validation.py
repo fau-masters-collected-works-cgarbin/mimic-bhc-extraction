@@ -7,18 +7,18 @@ The draw is stratified into three groups, narrative and domain-organized for
 the category rule and acute/chronic for the acuity rule, which fires on 2% of
 MIMIC-III.
 
-The coder works from the text alone. Cases are shuffled and numbered, and each
+The coder works from the text alone. Cases are shuffled and numbered. Each
 group splits as evenly as its size allows across the two datasets.
 
 Reads the extraction JSONL for both datasets from --results-dir. Writes the
-coding sheet and the key to --out-dir. Both hold MIMIC data and belong outside
+coding sheet and the key to --out-dir. Both contain MIMIC data and belong outside
 this repository.
 
 How to use it:
 
 1. Extract both datasets into --results-dir, if they are not there already.
    The draw takes half its cases from each, so both are required. Skip
-   --include-note-text, which quadruples the file and holds nothing this
+   --include-note-text, which quadruples the file and adds nothing this
    script reads:
 
        export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
@@ -35,8 +35,8 @@ How to use it:
 3. Open validation_coding_sheet.md and code the cases.
 4. Open validation_key.md and count the disagreements per rule. Disagreements
    are the result: score them against MAX_DISAGREEMENTS below. Do not
-   reconcile them. A rule over its limit is the thing that is wrong, and it
-   needs revising and re-validating on a fresh draw.
+   reconcile them. A rule over its limit is the thing that is wrong. Revise it
+   and re-validate on a fresh draw.
 
 Point --exclude at any file listing hadm_ids that have already been coded or
 annotated. On one of those the coder already knows the label, so applying the
@@ -228,7 +228,9 @@ def main():
         "--results-dir",
         required=True,
         type=Path,
-        help="Directory holding bhc_extraction_mimic-iii.jsonl and bhc_extraction_mimic-iv.jsonl",
+        help=(
+            "Directory containing bhc_extraction_mimic-iii.jsonl and bhc_extraction_mimic-iv.jsonl"
+        ),
     )
     parser.add_argument(
         "--exclude",

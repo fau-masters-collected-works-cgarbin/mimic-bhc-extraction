@@ -17,7 +17,7 @@ import re
 # ---------------------------------------------------------------------------
 # Uses [ \t] instead of \s so a line ending with "hospital" and the next
 # starting with "course" is not treated as one header.
-# Common prefix: optional "concise/brief summary of" or "history of"
+# Optional prefixes: "concise/brief summary of" and "history of".
 _SUMMARY_PREFIX = r"(?:(?:(?:concise|brief)[ \t]+)?summary[ \t]+of[ \t]+)?"
 _HISTORY_PREFIX = r"(?:history[ \t]+of[ \t]+)?"
 _HOSP = r"hospital(?:ization)?"
@@ -66,8 +66,8 @@ _BHC_HEADER_PRIORITY = [
 # could in theory appear as standalone lines within a BHC. The start-of-line
 # anchor mitigates most false positives.
 #
-# Uses [ \t] instead of \s for intra-pattern whitespace (same rationale as
-# the header patterns: avoid matching across line breaks).
+# Uses [ \t] instead of \s for intra-pattern whitespace, so a pattern cannot
+# match across a line break.
 _END_BOUNDARIES: list[tuple[str, str]] = [
     ("Medications on Admission", r"medications?[ \t]+on[ \t]+admission"),
     ("Medications on Discharge", r"medications?[ \t]+on[ \t]+discharge"),
@@ -94,7 +94,7 @@ END_BOUNDARY_RE = re.compile(
 )
 
 # The same sections without the end anchor, to match a header that leaked into
-# the extracted text and carries its section content on the same line.
+# the extracted text and has its section content on the same line.
 DISCHARGE_HEADER_RE = re.compile(
     r"^[ \t]*(?:" + _END_BOUNDARY_ALTERNATION + r")[ \t]*:?",
     re.IGNORECASE | re.MULTILINE,

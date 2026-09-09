@@ -57,7 +57,7 @@ _LOS_FILTER_DAYS = 3
 
 # Bucket edges anchored to population LOS quartiles (Q25=4, median=7,
 # Q75=13) and BHC-length quartiles (Q25~=1544, median~=2521, Q75~=3940),
-# not balanced for equal counts.
+# so bucket sizes vary.
 _LOS_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
     ("<3 days", 0, 2),
     ("3 to 4 days", 3, 4),

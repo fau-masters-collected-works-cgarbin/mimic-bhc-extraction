@@ -3,11 +3,11 @@
 Classifies BHC sections into three categories based on observable
 structural features:
 
-- Category A (Narrative): no labeled sections
-- Category B (Domain-organized): 2+ explicitly labeled sections
-- Category C (Standardized template): NICU template with fixed domain set
+- Narrative: no labeled sections
+- Domain-organized: 2+ explicitly labeled sections
+- Standardized template: NICU template with fixed domain set
 
-Also records the numbering convention, and detects two modifiers:
+Also records the numbering convention and detects two modifiers:
 acute/chronic partition and a transitional issues section.
 
 docs/bhc-format-coding-rules.md states the same rules for a person to
@@ -29,10 +29,10 @@ MODIFIER_ACUTE_CHRONIC = "acute_chronic"
 MODIFIER_TRANSITIONAL_ISSUES = "transitional_issues"
 
 # ---------------------------------------------------------------------------
-# Category C: NICU template detection
+# Standardized template: NICU detection
 # ---------------------------------------------------------------------------
 # Standard neonatal assessment domains. A BHC matching 4+ of these as
-# standalone section headers is classified as Category C.
+# standalone section headers is classified as a standardized template.
 _NICU_DOMAINS: list[str] = [
     r"respiratory",
     r"cardiovascular",
@@ -86,7 +86,7 @@ def _has_nicu_specific_domain(bhc_text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Category B: Domain-organized detection
+# Domain-organized detection
 # ---------------------------------------------------------------------------
 # Detect labeled sections using structural markers. Each pattern matches
 # a line that starts a new clinical-domain section.
@@ -186,7 +186,7 @@ def _count_labeled_sections(bhc_text: str) -> int:
 
 
 def _detect_numbering_convention(bhc_text: str) -> str:
-    """Identify the numbering convention used in a Category B BHC.
+    """Identify the numbering convention used in a domain-organized BHC.
 
     Returns the dominant convention if one reaches the threshold, or
     "mixed" when sections use a combination of markers with no single

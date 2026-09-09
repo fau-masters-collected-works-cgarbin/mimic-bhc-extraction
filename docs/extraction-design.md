@@ -2,15 +2,15 @@
 
 How the Brief Hospital Course (BHC) extractor works: the algorithm, its assumptions, and the decisions behind them.
 
-## What is the Brief Hospital Course
+## The Brief Hospital Course
 
 A discharge summary is a clinical document written when a patient leaves the hospital. It consolidates the entire admission into a single narrative that the next provider (primary care physician, rehabilitation facility, specialist) can use to continue care. Discharge summaries in MIMIC follow a semi-structured format with named sections, though the exact headers and ordering vary across institutions and individual clinicians.
 
-The Brief Hospital Course (BHC) is typically the longest and most clinically dense section of the discharge summary. It narrates what happened during the hospitalization: why the patient was admitted, what diagnoses were made, what treatments were given, how the patient responded, and what the clinical trajectory looked like from admission to discharge. Clinicians write the BHC at the time of discharge, synthesizing information from daily progress notes, lab results, imaging reports, procedure notes, and medication records. The BHC is not a simple concatenation of these sources. It requires clinical judgment to select what matters, organize it coherently, and frame it for the receiving provider. In summarization research, the BHC is the target output, the section a model would generate given the rest of the clinical record as input (Adams et al., 2021, and Aali et al., 2025).
+The Brief Hospital Course (BHC) is typically the longest and most clinically dense section of the discharge summary. It narrates what happened during the hospitalization: why the patient was admitted, what diagnoses were made, what treatments were given, how the patient responded, and what the clinical trajectory looked like from admission to discharge. Clinicians write the BHC at the time of discharge, synthesizing information from daily progress notes, lab results, imaging reports, procedure notes, and medication records. The BHC is not a simple concatenation of these sources. It requires clinical judgment to select what matters, organize it coherently, and frame it for the receiving provider. In summarization research, the BHC is the target output, the section a model would generate given the rest of the clinical record as input. Adams et al. (2021) and Aali et al. (2025) both define the task that way.
 
 ## BHCResult as the single data structure
 
-`BHCResult` is the canonical representation of a BHC extraction throughout the codebase. Every function that produces, transforms, or serializes extraction data works with `BHCResult` directly.
+`BHCResult` is the only representation of a BHC extraction used in the codebase. Every function that produces, transforms, or serializes extraction data works with `BHCResult` directly.
 
 `BHCResult` fields are populated in layers. Each layer fills in the fields it owns and passes the result forward using `dataclasses.replace()`:
 
@@ -77,8 +77,6 @@ The boundary list excludes BHC-internal sub-headers like "Cardiovascular:", "Ren
 
 It also excludes handoff-oriented headers like "Transitional Issues" and "Pending Labs" that appear at the end of some BHCs (primarily in MIMIC-IV). Clinically, this content is discharge planning, but clinicians type it into the BHC text field in the EHR, so it falls between the BHC header and the next top-level boundary. The released MIMIC-IV-Ext-BHC data retains this content in its BHC field, though Aali et al. (2025) do not document it as a design choice.
 
-The boundary list must be broad enough to catch the next real section but narrow enough to avoid cutting into the BHC body.
-
 ## Addendum deduplication
 
 MIMIC-III stores addendums (supplemental notes appended after the original discharge summary) as separate rows with the same hospital admission ID (`HADM_ID`). Of the ~59,600 discharge summary rows, ~52,700 are unique by `hadm_id`. The rest are addendum duplicates.
@@ -93,7 +91,7 @@ Each extraction result includes a list of quality flags:
 - `unbounded`: No end boundary was found. BHC extends to the end of the note.
 - `iserror`: The note was flagged as entered in error in MIMIC-III's `ISERROR` column.
 
-These flags are informational. The extractor does not filter based on them. Consumers decide what to keep.
+The extractor does not filter on these flags. Consumers decide what to keep.
 
 ## Structure classification
 
@@ -103,7 +101,7 @@ After extraction, the batch module classifies each BHC's organizational structur
 
 **Narrative.** The BHC is written as continuous prose following the patient's clinical trajectory. Events follow the temporal sequence in which they happened. There are no labeled sections, numbered entries, or explicit structural divisions. Surgical notes that follow a procedure-recovery-discharge arc with POD (post-operative day) numbering are typical examples.
 
-**Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as # prefixed headers, numbered entries, or unprefixed headers that open a line and are followed by the domain's text. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
+**Domain-organized.** The BHC is divided into explicitly labeled sections, each covering one clinical domain (organ system, disease, or management area). Labels may appear as `#`-prefixed headers, numbered entries, or unprefixed headers that open a line and are followed by the domain's text. Within each section, clinicians write a narrative about that domain's course during the hospitalization. This is the majority format in both datasets.
 
 **Standardized template.** The BHC follows a fixed template with standardized section names applied to every patient regardless of clinical presentation (e.g., NICU assessment domains: Respiratory, Cardiovascular, FEN (fluids, electrolytes, nutrition), GI (gastrointestinal), Hematology, ID (infectious disease), Neurology, Sensory, Psychosocial). Present only in MIMIC-III (no neonatal admissions in MIMIC-IV).
 
@@ -111,9 +109,9 @@ See [Empirical Findings](empirical-findings.md#structure-classification-distribu
 
 ### Validating the classifier against hand-coded cases
 
-`docs/bhc-format-coding-rules.md` states the rules the classifier implements. One author hand-coded 40 blinded cases against those rules and disagreed with the classifier on one of them.
+`docs/bhc-format-coding-rules.md` states the rules the classifier implements. One author hand-coded 40 blinded cases against those rules.
 
-The 40 cases cover two rules and are scored separately: 30 cases for the category rule, which accepts up to 3 disagreements, and 10 for the acute/chronic rule, which accepts 1.
+The 40 cases cover two rules and are scored separately: 30 cases for the category rule, which accepts up to 3 disagreements, and 10 for the acute/chronic rule, which accepts 1. The category rule drew no disagreements over its 30 cases. The acute/chronic rule drew one over its 10, on a case where the classifier found a partition the coder did not. That is exactly the limit the rule allows, so it passes with no margin.
 
 The coding rules give the coder two labels, narrative and domain-organized, and tell them to code a neonatal template as domain-organized. The hand-coding therefore validates only the boundary between narrative and domain-organized.
 
@@ -126,15 +124,15 @@ The classifier emits two modifiers alongside the category:
 - **Acute/chronic partition**: a header on its own line labeling a group of problems acute, active, chronic, stable, or inactive.
 - **Transitional Issues section**: Forward-looking handoff content at the end of the BHC.
 
-It also records a numbering convention for domain-organized BHCs: `#`, `##`, `N.`, `N)`, `(N)`, `N/`, `*`, `standalone`, or `mixed`. `standalone` means the header has no prefix marker. That is a field on the result, and nothing reads it.
+It also records a numbering convention for domain-organized BHCs: `#`, `##`, `N.`, `N)`, `(N)`, `N/`, `*`, `standalone`, or `mixed`. `standalone` means the header has no prefix marker. That is a field on the result. Nothing reads it.
 
 The Transitional Issues modifier tracks the handoff content that the end-boundary allowlist passes through (see [End-boundary patterns](#end-boundary-patterns)).
 
 ### Provenance of the format distinction
 
-The domain-organized format traces its lineage to the problem-oriented medical record (POMR). Weed introduced it in 1964 and popularized it in his 1968 NEJM article. The POMR organizes clinical documentation around a numbered problem list. Each progress note is filed under a numbered problem, recording the patient's subjective account, the objective data, the current treatment, and the plan for the next interval (Weed, 1968). Later work replaced the treatment element with an assessment and codified the result as SOAP. Weed's paper is among the most cited in clinical informatics, and the problem list and the SOAP-format progress note are now described as ubiquitous (Wright et al., 2014). When clinicians write a domain-organized BHC, they group information by clinical problem, the same principle the POMR applies to progress notes.
+The domain-organized format traces its lineage to the problem-oriented medical record (POMR). Weed introduced it in 1964 and popularized it in his 1968 NEJM article. The POMR organizes clinical documentation around a numbered problem list. Each progress note is filed under a numbered problem, recording the patient's subjective account, the objective data, the current treatment, and the plan for the next interval (Weed, 1968). Later work replaced the treatment element with an assessment and codified the result as SOAP. Weed's paper is among the most cited in clinical informatics. The problem list and the SOAP-format progress note are now described as ubiquitous (Wright et al., 2014). When clinicians write a domain-organized BHC, they group information by clinical problem, the same principle the POMR applies to progress notes.
 
-Hospital medicine literature treats problem-based organization of the hospital course as a template choice. Smith et al. (2017) report a discharge summary redesign that eliminated the stand-alone diagnosis list and incorporated it "as part of the problem-based hospital course," and they score "problem-based hospital course" as one of 24 discharge summary quality elements. Dean et al. (2016), standardizing discharge summaries hospitalwide at a different institution, keep diagnoses and hospital course as separate template elements.
+Hospital medicine literature treats problem-based organization of the hospital course as a template choice. Smith et al. (2017) report a discharge summary redesign that eliminated the stand-alone diagnosis list and incorporated it "as part of the problem-based hospital course." They score "problem-based hospital course" as one of 24 discharge summary quality elements. Dean et al. (2016), standardizing discharge summaries hospitalwide at a different institution, keep diagnoses and hospital course as separate template elements.
 
 We found no published work that names the narrative format as a category or contrasts it with the problem-based one. The narrative category here comes from the corpus.
 
@@ -174,7 +172,7 @@ It also confirmed which discharge-summary sections reliably follow the BHC and w
 
 We evaluated each candidate on the full corpus for extraction yield and false-positive risk. The start-of-line anchor (`^`) was the primary defense against false positives, making it safe to add patterns like "Hosp Course" that appear as headers on their own line but never mid-paragraph. Candidates that matched common phrases within BHC narrative text were rejected.
 
-**Step 4: Comparative validation.** We ran our extractor and Kruse et al.'s over the same MIMIC-III notes. The two agree on most cases. Our broader patterns capture thousands of additional BHCs. The small number of cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical Findings](empirical-findings.md) for the full comparison.
+**Step 4: Comparative validation.** We ran our extractor and Kruse et al.'s over the same MIMIC-III notes. The two agree on 44,835 of the 52,726 admissions. Our broader patterns capture 6,296 additional BHCs. The 31 cases where only the alternative succeeded were investigated to determine whether adding patterns was worth the false-positive risk. See [Empirical Findings](empirical-findings.md) for the full comparison.
 
 **Step 5: Targeted gap analysis.** The cases where only the alternative extractor succeeded traced to two root causes: PHI de-identification artifacts breaking the start-of-line anchor, and rare prefix variants not in our pattern list. The gap was too small to justify the added pattern complexity. Cases where both extractors failed were genuinely unstructured notes with no recognizable header in any form.
 
