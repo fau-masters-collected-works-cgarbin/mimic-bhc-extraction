@@ -7,6 +7,7 @@ import pytest
 
 from mimic_bhc.cli import (
     _print_bucketed_availability,
+    _print_format_cross_tab,
     _resolve_mimic_paths,
     _run_stats,
 )
@@ -221,3 +222,28 @@ class TestPrintBucketedAvailability:
         assert "7 total" in out
         assert "4 CareVue" in out
         assert "3 MetaVision" in out
+
+
+class TestPrintFormatCrossTab:
+    def test_each_format_row_carries_its_own_counts(self, capsys):
+        """Rows must pair a format with its own cells, not another format's."""
+        cross = {
+            "cells": {
+                "narrative": {"clinical_narrative": 1200, "imaging_only": 34},
+                "domain_organized": {"clinical_narrative": 800, "imaging_only": 7},
+            },
+            "row_totals": {"narrative": 1234, "domain_organized": 807},
+            "col_totals": {"clinical_narrative": 2000, "imaging_only": 41},
+            "grand_total": 2041,
+        }
+        _print_format_cross_tab(cross)
+
+        printed = {}
+        for line in capsys.readouterr().out.splitlines():
+            cells = line.split()
+            if cells and cells[0] in ("narrative", "domain_organized", "Total"):
+                printed[cells[0]] = cells[1:]
+
+        assert printed["narrative"] == ["1,200", "34", "1,234"]
+        assert printed["domain_organized"] == ["800", "7", "807"]
+        assert printed["Total"] == ["2,000", "41", "2,041"]
