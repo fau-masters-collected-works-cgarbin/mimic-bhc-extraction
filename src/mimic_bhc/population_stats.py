@@ -379,16 +379,18 @@ def _build_admission_frame(
     icu_dbsource: pd.DataFrame | None,
 ) -> pd.DataFrame:
     """Build one DataFrame keyed by hadm_id with the attributes the stats need."""
-    rows = [
-        {
-            "hadm_id": r.hadm_id,
-            "subject_id": r.subject_id,
-            "bhc_format": r.bhc_structure.category if r.bhc_structure else None,
-            "bhc_char_count": r.bhc_char_count,
-        }
-        for r in results
-        if r.extraction_success and r.hadm_id is not None
-    ]
+    rows = []
+    for r in results:
+        if not r.extraction_success or r.hadm_id is None:
+            continue
+        rows.append(
+            {
+                "hadm_id": r.hadm_id,
+                "subject_id": r.subject_id,
+                "bhc_format": r.bhc_structure.category if r.bhc_structure else None,
+                "bhc_char_count": r.bhc_char_count,
+            }
+        )
     if rows:
         base = pd.DataFrame(rows).set_index("hadm_id")
     else:
@@ -449,10 +451,10 @@ def _bucketed_availability(
             "metavision": _bucket_cell(_system_slice(bucket_slice, DBSOURCE_METAVISION)),
         }
         rows.append(row)
-    excluded: dict[str, int] = {
-        column: int(len(_system_slice(df, dbsource)) - len(_system_slice(valid, dbsource)))
-        for column, dbsource in _SYSTEM_COLUMNS
-    }
+    excluded: dict[str, int] = {}
+    for column, dbsource in _SYSTEM_COLUMNS:
+        dropped = len(_system_slice(df, dbsource)) - len(_system_slice(valid, dbsource))
+        excluded[column] = int(dropped)
     return {"rows": rows, "excluded": excluded}
 
 

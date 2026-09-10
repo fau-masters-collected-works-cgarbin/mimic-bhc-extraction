@@ -67,31 +67,27 @@ class TestReadRows:
     def test_every_summary_is_counted_but_only_eligible_ones_are_classified(self, tmp_path):
         """The two counts are different denominators. Collapsing them would lose the total."""
         path = tmp_path / "bhc.jsonl"
-        path.write_text(
-            "\n".join(
-                json.dumps(r)
-                for r in [
-                    {
-                        "hadm_id": 100001,
-                        "extraction_success": True,
-                        "bhc_char_count": 900,
-                        "bhc_text": "The patient improved. " * 50,
-                    },
-                    {
-                        "hadm_id": 100002,
-                        "extraction_success": True,
-                        "bhc_char_count": 100,
-                        "bhc_text": "Too short.",
-                    },
-                    {
-                        "hadm_id": 100003,
-                        "extraction_success": False,
-                        "bhc_char_count": 0,
-                        "bhc_text": None,
-                    },
-                ]
-            )
-        )
+        records = [
+            {
+                "hadm_id": 100001,
+                "extraction_success": True,
+                "bhc_char_count": 900,
+                "bhc_text": "The patient improved. " * 50,
+            },
+            {
+                "hadm_id": 100002,
+                "extraction_success": True,
+                "bhc_char_count": 100,
+                "bhc_text": "Too short.",
+            },
+            {
+                "hadm_id": 100003,
+                "extraction_success": False,
+                "bhc_char_count": 0,
+                "bhc_text": None,
+            },
+        ]
+        path.write_text("\n".join(json.dumps(r) for r in records))
         by_dataset, summaries = stats.read_rows(path)
         assert summaries["mimic-iii"] == 3
         assert len(by_dataset["mimic-iii"]) == 1

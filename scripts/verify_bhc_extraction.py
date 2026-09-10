@@ -32,6 +32,9 @@ def separator(title: str) -> None:
 # ---------------------------------------------------------------------------
 # Task 1: Categorize failures
 # ---------------------------------------------------------------------------
+_ALTERNATE_HEADER_KEYWORDS = ("course", "summary", "narrative", "hospital")
+
+
 def categorize_failures(results, n_inspect=20):
     """Inspect failed extractions and bucket them by likely cause."""
     separator("TASK 1: Categorize Extraction Failures")
@@ -115,11 +118,11 @@ def categorize_failures(results, n_inspect=20):
             print()
             continue
 
-        alternate = [
-            h.strip()
-            for h in headers_found
-            if any(kw in h.lower() for kw in ["course", "summary", "narrative", "hospital"])
-        ]
+        alternate = []
+        for header in headers_found:
+            lowered = header.lower()
+            if any(kw in lowered for kw in _ALTERNATE_HEADER_KEYWORDS):
+                alternate.append(header.strip())
         if alternate:
             categories["has_alternate_header"].append(r.row_id)
             print(f"  Category: HAS ALTERNATE HEADER: {alternate}")

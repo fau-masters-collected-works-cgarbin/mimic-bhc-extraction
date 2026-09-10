@@ -81,11 +81,10 @@ def count_sections(text, *, skip=None, skip_unprefixed=False, discharge_filter=T
         if name != skip:
             starts.update(m.start() for m in pattern.finditer(text))
     if not skip_unprefixed:
-        starts.update(
-            m.start()
-            for m in structure._UNPREFIXED_HEADER_RE.finditer(text)
-            if not (discharge_filter and structure._is_discharge_header(text, m.start()))
-        )
+        for m in structure._UNPREFIXED_HEADER_RE.finditer(text):
+            if discharge_filter and structure._is_discharge_header(text, m.start()):
+                continue
+            starts.add(m.start())
     return len(starts)
 
 

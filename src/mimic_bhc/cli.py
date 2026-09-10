@@ -203,11 +203,11 @@ def _resolve_mimic_paths(args: argparse.Namespace) -> _ResolvedMimicPaths | None
         return None
 
     if not admissions or not noteevents:
-        missing = [
-            name
-            for name, value in (("admissions", admissions), ("noteevents", noteevents))
-            if not value
-        ]
+        missing = []
+        if not admissions:
+            missing.append("admissions")
+        if not noteevents:
+            missing.append("noteevents")
         names = ", ".join(missing)
         print(
             f"Population stats need {names}; pass --mimic-dir or the per-table flag(s).",
@@ -334,15 +334,17 @@ def _print_format_cross_tab(cross: FormatByNoteCategory) -> None:
     grand = cross["grand_total"]
     print("\nBHC format by note-category availability (templates excluded):")
     headers = ["Format", "clinical_narrative", "imaging_only", "Total"]
-    rows = [
-        [
-            fmt,
-            f"{cells[fmt]['clinical_narrative']:,}",
-            f"{cells[fmt]['imaging_only']:,}",
-            f"{row_totals[fmt]:,}",
-        ]
-        for fmt in ("narrative", "domain_organized")
-    ]
+    rows: list[list[str]] = []
+    for fmt in ("narrative", "domain_organized"):
+        cell = cells[fmt]
+        rows.append(
+            [
+                fmt,
+                f"{cell['clinical_narrative']:,}",
+                f"{cell['imaging_only']:,}",
+                f"{row_totals[fmt]:,}",
+            ]
+        )
     rows.append(
         [
             "Total",
@@ -391,15 +393,16 @@ def _print_bucketed_availability(title: str, breakdown: BucketedAvailability) ->
     print(f"{_TABLE_INDENT}{_BUCKET_EXCLUSION_NOTE}")
     excluded = breakdown["excluded"]
     if any(excluded.values()):
-        excluded_str = ", ".join(
-            f"{excluded[col]:,} {label}"
-            for col, label in (
-                (BUCKET_COLUMN_TOTAL, "total"),
-                (BUCKET_COLUMN_CAREVUE, "CareVue"),
-                (BUCKET_COLUMN_METAVISION, "MetaVision"),
-            )
-            if excluded[col]
+        column_labels = (
+            (BUCKET_COLUMN_TOTAL, "total"),
+            (BUCKET_COLUMN_CAREVUE, "CareVue"),
+            (BUCKET_COLUMN_METAVISION, "MetaVision"),
         )
+        counts = []
+        for col, label in column_labels:
+            if excluded[col]:
+                counts.append(f"{excluded[col]:,} {label}")
+        excluded_str = ", ".join(counts)
         print(f"{_TABLE_INDENT}({excluded_str} admissions excluded due to missing value)")
 
 
