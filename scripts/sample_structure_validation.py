@@ -23,7 +23,7 @@ How to use it:
 
        export MIMIC3_NOTES=../mimic-iii/physionet.org/files/mimiciii/1.4/
        export MIMIC4_NOTES=../mimic-iv-note/physionet.org/files/mimic-iv-note/2.2/note/
-       export RESULTS_DIR=../phd-dissertation-experiment-results/bhc_extraction
+       export RESULTS_DIR=../bhc-results/bhc_extraction
 
        mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
            --output $RESULTS_DIR/bhc_extraction_mimic-iii.jsonl
@@ -44,10 +44,10 @@ rules would test nothing.
 
 Usage:
     uv run python scripts/sample_structure_validation.py \
-        --results-dir ../phd-dissertation-experiment-results/bhc_extraction \
+        --results-dir ../bhc-results/bhc_extraction \
         --exclude previously-annotated-admissions.md \
         --seed 20260802 \
-        --out-dir ../phd-dissertation-experiment-results/bhc_structure_validation
+        --out-dir ../bhc-results/bhc_structure_validation
 """
 
 from __future__ import annotations

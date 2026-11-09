@@ -184,7 +184,7 @@ uv run mimic-bhc-extract stats --input bhc_mimic3.jsonl --mimic-dir $MIMIC3_NOTE
 Adds five sections that require joining the extraction output with MIMIC-III source tables:
 
 - Note-category availability: admissions classified as `clinical_narrative` (any note in `Nursing`, `Nursing/other`, or any category beginning with `Physician`) or `imaging_only` (only the discharge summary plus radiology/ECG-style notes). Optionally broken down by ICU dbsource (CareVue or MetaVision) when ICUSTAYS is available, and further by length-of-stay bucket and BHC-length bucket. The bucket breakdowns report a Total column alongside CareVue and MetaVision. Mixed and No-ICU admissions roll into the Total column but get no column of their own. Their unstratified counts are visible in the parent "By ICU system" sub-block.
-- Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed), matching the `LOS >= 3` cohort filter used in the dissertation cohort-selection step.
+- Length of stay: mean, median, Q25, Q75, Q90, and the count of admissions with `LOS < 3` days. LOS uses `DATE_DIFF('day', ADMITTIME, DISCHTIME)` (integer day boundaries crossed).
 - Source-record content per admission by note-category class (discharge summary excluded): note count and total note characters per admission, summarized as Median, Mean, Q25, Q75, Q90, Min, Max, and n, split by note-category class (`clin_narr`, `imaging_only`) and by ICU system (All systems, CareVue, MetaVision).
 - BHC format by note-category availability: 2x2 cross-tab of `narrative` and `domain_organized` against `clinical_narrative` and `imaging_only`. Templates (`standardized_template`) are excluded. The script self-checks the row totals against the structure distribution and raises an error if they disagree.
 - Mortality: count and percentage of admissions where `HOSPITAL_EXPIRE_FLAG = 1`.
@@ -221,15 +221,15 @@ See [Pattern development process](docs/extraction-design.md#pattern-development-
 
 > [!NOTE]
 >
-> Extracted MIMIC data is kept in the sibling directory ../phd-dissertation-experiment-results to prevent accidentally committing private data.
+> Keep extracted MIMIC data outside this repository so that it cannot be committed by accident. The examples below write it to the sibling directory ../bhc-results.
 
 Run extraction with the CLI, then use `stats` to review the results (using `MIMIC3_NOTES` from [Command-line](#command-line) above):
 
 ```bash
 mimic-bhc-extract extract --input $MIMIC3_NOTES/NOTEEVENTS.csv.gz \
-    --output ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl --include-note-text
+    --output ../bhc-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl --include-note-text
 
-mimic-bhc-extract stats --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
+mimic-bhc-extract stats --input ../bhc-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 ```
 
 ### Verification and comparison scripts
@@ -247,26 +247,28 @@ Scripts take explicit paths as arguments:
 
 ```bash
 uv run python scripts/verify_bhc_extraction.py \
-    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
+    --input ../bhc-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 
 uv run python scripts/generate_bhc_audit.py \
-    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl \
-    --output ../phd-dissertation-experiment-results/bhc_extraction/bhc_audit_mimic-iii.jsonl
+    --input ../bhc-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl \
+    --output ../bhc-results/bhc_extraction/bhc_audit_mimic-iii.jsonl
 
 uv run python scripts/compare_bhc_extraction_kruse.py \
-    --input ../phd-dissertation-experiment-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
+    --input ../bhc-results/bhc_extraction/bhc_extraction_mimic-iii.jsonl
 
 uv run python scripts/ablate_structure_rules.py \
-    --results-dir ../phd-dissertation-experiment-results/bhc_extraction
+    --results-dir ../bhc-results/bhc_extraction
 
 uv run python scripts/bhc_format_stats.py --input bhc.jsonl
 
 uv run python scripts/sample_structure_validation.py \
-    --results-dir ../phd-dissertation-experiment-results/bhc_extraction \
+    --results-dir ../bhc-results/bhc_extraction \
     --exclude previously-annotated-admissions.md \
     --seed 20260802 \
-    --out-dir ../phd-dissertation-experiment-results/bhc_structure_validation
+    --out-dir ../bhc-results/bhc_structure_validation
 ```
+
+`--exclude` is optional. It takes a file listing admissions that were already coded, which the script's docstring explains.
 
 ## MIMIC format support
 

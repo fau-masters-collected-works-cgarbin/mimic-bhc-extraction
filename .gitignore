@@ -42,5 +42,8 @@ venv/
 *.jsonl
 *.json
 *.yaml
+*.csv
+validation_coding_sheet.md
+validation_key.md
 
 .claude

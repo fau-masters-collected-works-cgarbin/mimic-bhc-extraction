@@ -18,7 +18,7 @@ Reads the extraction JSONL for both datasets from --results-dir.
 
 Usage:
     uv run python scripts/ablate_structure_rules.py \
-        --results-dir ../phd-dissertation-experiment-results/bhc_extraction
+        --results-dir ../bhc-results/bhc_extraction
 """
 
 from __future__ import annotations
